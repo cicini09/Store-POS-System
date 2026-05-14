@@ -79,6 +79,11 @@ class ReportsView(ttk.Frame):
         self.orders_search_var.trace_add("write", lambda *_args: self._render_orders_rows())
         ttk.Entry(top_bar, textvariable=self.orders_search_var, width=36).pack(side="left", padx=8)
         ttk.Label(top_bar, textvariable=self.orders_results_var, style="App.Subtle.TLabel").pack(side="left", padx=(8, 0))
+        ttk.Label(
+            top_bar,
+            text="Review customer, basket summary, units, and receipt status at a glance.",
+            style="App.Subtle.TLabel",
+        ).pack(side="left", padx=(16, 0))
         self.orders_columns_placeholder = ttk.Frame(top_bar, style="App.TFrame")
         self.orders_columns_placeholder.pack(side="right", padx=(8, 0))
         ttk.Button(
@@ -101,10 +106,14 @@ class ReportsView(ttk.Frame):
             [
                 TableColumn("order_id", "Order ID", 100, frozen=True, can_hide=False, sort_type="int"),
                 TableColumn("customer", "Customer", 180, frozen=True, can_hide=False),
-                TableColumn("email", "Email", 240),
+                TableColumn("items_summary", "Items", 340),
+                TableColumn("units", "Units", 90, sort_type="int"),
+                TableColumn("line_items", "Lines", 90, sort_type="int", hidden=True),
                 TableColumn("date", "Date", 180, sort_type="date"),
                 TableColumn("total", "Total", 130, sort_type="float", formatter=currency_text),
-                TableColumn("email_sent", "Email Sent", 110, sort_type="bool_text"),
+                TableColumn("email_sent", "Receipt", 110, sort_type="bool_text"),
+                TableColumn("email", "Email", 240, hidden=True),
+                TableColumn("phone", "Phone", 150, hidden=True),
             ],
             height=18,
             empty_message="No orders matched the current report filters.",
@@ -120,17 +129,23 @@ class ReportsView(ttk.Frame):
             "order_id": tk.StringVar(value="-"),
             "customer": tk.StringVar(value="-"),
             "email": tk.StringVar(value="-"),
+            "phone": tk.StringVar(value="-"),
             "date": tk.StringVar(value="-"),
             "total": tk.StringVar(value="-"),
+            "items": tk.StringVar(value="-"),
+            "units": tk.StringVar(value="-"),
             "status": tk.StringVar(value="-"),
         }
         for label_text, key in [
             ("Order ID", "order_id"),
             ("Customer", "customer"),
             ("Email", "email"),
+            ("Phone", "phone"),
             ("Date", "date"),
             ("Total", "total"),
-            ("Email Sent", "status"),
+            ("Items", "items"),
+            ("Units", "units"),
+            ("Receipt", "status"),
         ]:
             row = ttk.Frame(detail_header, style="App.TFrame")
             row.pack(fill="x", pady=3)
@@ -169,9 +184,13 @@ class ReportsView(ttk.Frame):
                 "order_id": row[0],
                 "customer": row[1],
                 "email": row[2],
-                "date": row[3],
-                "total": row[4],
-                "email_sent": row[5],
+                "phone": row[3],
+                "date": row[4],
+                "total": row[5],
+                "email_sent": row[6],
+                "line_items": row[7],
+                "units": row[8],
+                "items_summary": row[9],
             }
             for row in database.get_orders_report()
         ]
@@ -213,8 +232,11 @@ class ReportsView(ttk.Frame):
         self.order_detail_vars["order_id"].set(str(order_id))
         self.order_detail_vars["customer"].set(row["customer"])
         self.order_detail_vars["email"].set(row["email"])
+        self.order_detail_vars["phone"].set(row["phone"] or "-")
         self.order_detail_vars["date"].set(row["date"])
         self.order_detail_vars["total"].set(currency_text(row["total"]))
+        self.order_detail_vars["items"].set(f"{row['line_items']} line(s)")
+        self.order_detail_vars["units"].set(str(row["units"]))
         self.order_detail_vars["status"].set(row["email_sent"])
 
         self.order_items_table.set_rows(

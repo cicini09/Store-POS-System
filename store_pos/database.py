@@ -439,11 +439,25 @@ def get_orders_report() -> list[tuple]:
                 o.id,
                 c.name,
                 c.email,
+                COALESCE(c.phone, '') AS phone,
                 o.created_at,
                 ROUND(o.total_amount, 2),
-                CASE WHEN o.email_sent = 1 THEN 'Yes' ELSE 'No' END AS email_sent
+                CASE WHEN o.email_sent = 1 THEN 'Sent' ELSE 'Pending' END AS email_sent,
+                COUNT(oi.id) AS line_items,
+                COALESCE(SUM(oi.quantity), 0) AS units,
+                COALESCE(GROUP_CONCAT(p.name || ' x' || oi.quantity, ', '), 'No items') AS items_summary
             FROM orders o
             JOIN customers c ON c.id = o.customer_id
+            LEFT JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN products p ON p.id = oi.product_id
+            GROUP BY
+                o.id,
+                c.name,
+                c.email,
+                c.phone,
+                o.created_at,
+                o.total_amount,
+                o.email_sent
             ORDER BY datetime(o.created_at) DESC, o.id DESC
             """
         )

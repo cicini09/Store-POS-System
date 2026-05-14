@@ -20,12 +20,12 @@ def generate_inventory_pdf(rows) -> str:
 def generate_orders_pdf(rows) -> str:
     """Generate and return the path to the orders report PDF."""
     filename = REPORTS_DIR / f"orders_report_{_timestamp()}.pdf"
-    data = [["Order ID", "Customer", "Email", "Date", "Total", "Email Sent"]]
+    data = [["Order ID", "Customer", "Items", "Units", "Total", "Date", "Receipt"]]
     total_amount = 0.0
     for row in rows:
-        total_amount += float(row[4])
-        data.append([str(row[0]), row[1], row[2], row[3], f"PHP {row[4]:,.2f}", row[5]])
-    data.append(["", "", "", "Grand Total", f"PHP {total_amount:,.2f}", ""])
+        total_amount += float(row[5])
+        data.append([str(row[0]), row[1], row[9], str(row[8]), f"PHP {row[5]:,.2f}", row[4], row[6]])
+    data.append(["", "", "", "Grand Total", f"PHP {total_amount:,.2f}", "", ""])
     _build_pdf(filename, f"{STORE_NAME} Orders Report", data)
     return str(filename)
 

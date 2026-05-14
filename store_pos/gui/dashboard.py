@@ -105,7 +105,7 @@ class DashboardView(ttk.Frame):
                 TableColumn("stock", "Stock", 90, sort_type="int"),
             ],
             height=10,
-            empty_message="No low stock items right now.",
+            empty_message="No low stock items",
             selectmode="browse",
         )
         self.low_stock_table.pack(fill="both", expand=True)
@@ -202,6 +202,7 @@ class MainApplication(tk.Tk):
         self.geometry(APP_GEOMETRY)
         self.minsize(1100, 680)
         self.configure(bg=SURFACE)
+        self._open_maximized()
 
         self._configure_style()
         self._disable_double_click_focus()
@@ -239,6 +240,24 @@ class MainApplication(tk.Tk):
         self.products_view.load_products()
         self.orders_view.refresh_products()
         self.reports_view.refresh_reports()
+
+    def _open_maximized(self) -> None:
+        try:
+            self.state("zoomed")
+            return
+        except tk.TclError:
+            pass
+
+        try:
+            self.attributes("-zoomed", True)
+            return
+        except tk.TclError:
+            pass
+
+        try:
+            self.attributes("-fullscreen", True)
+        except tk.TclError:
+            pass
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)

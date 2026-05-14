@@ -17,11 +17,14 @@ class LoginWindow(tk.Tk):
         self.on_success = on_success
         self.login_succeeded = False
         self.title(f"{APP_TITLE} - Login")
-        self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self._handle_close)
+        self._open_maximized()
 
-        container = ttk.Frame(self, padding=24)
-        container.pack(fill="both", expand=True)
+        shell = ttk.Frame(self, padding=24)
+        shell.pack(fill="both", expand=True)
+
+        container = ttk.Frame(shell, padding=24)
+        container.place(relx=0.5, rely=0.42, anchor="center")
 
         ttk.Label(
             container,
@@ -76,12 +79,25 @@ class LoginWindow(tk.Tk):
 
     def _show_window(self) -> None:
         self.update_idletasks()
-        width = self.winfo_reqwidth()
-        height = self.winfo_reqheight()
-        x_pos = (self.winfo_screenwidth() - width) // 2
-        y_pos = (self.winfo_screenheight() - height) // 3
-        self.geometry(f"{width}x{height}+{x_pos}+{y_pos}")
         self.lift()
         self.attributes("-topmost", True)
         self.after(200, lambda: self.attributes("-topmost", False))
         self.focus_force()
+
+    def _open_maximized(self) -> None:
+        try:
+            self.state("zoomed")
+            return
+        except tk.TclError:
+            pass
+
+        try:
+            self.attributes("-zoomed", True)
+            return
+        except tk.TclError:
+            pass
+
+        try:
+            self.attributes("-fullscreen", True)
+        except tk.TclError:
+            pass

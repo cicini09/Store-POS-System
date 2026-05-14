@@ -159,7 +159,6 @@ class ModernDataTable(ttk.Frame):
         self.scroll_tree.pack(side="top", fill="both", expand=True)
 
         self.v_scrollbar = ttk.Scrollbar(self.table_area, orient="vertical", command=self._on_vertical_scroll)
-        self.v_scrollbar.pack(side="right", fill="y")
         self.h_scrollbar = ttk.Scrollbar(self.scroll_wrapper, orient="horizontal", command=self.scroll_tree.xview)
         self.h_scrollbar.pack(side="bottom", fill="x")
 
