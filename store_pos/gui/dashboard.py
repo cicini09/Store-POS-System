@@ -7,7 +7,7 @@ from tkinter import ttk
 
 from .. import database
 from ..config import APP_GEOMETRY, APP_TITLE, LOW_STOCK_THRESHOLD
-from ..utils.treeview_sort import attach_sorting
+from .data_table import ModernDataTable, TableColumn
 from .orders import OrdersView
 from .products import ProductsView
 from .reports import ReportsView
@@ -97,24 +97,18 @@ class DashboardView(ttk.Frame):
             style="App.TLabelframe",
         )
         low_stock_frame.grid(row=0, column=1, sticky="nsew")
-        self.low_stock_tree = ttk.Treeview(
+        self.low_stock_table = ModernDataTable(
             low_stock_frame,
-            columns=("name", "category", "stock"),
-            show="headings",
+            [
+                TableColumn("name", "Product", 190, frozen=True, can_hide=False),
+                TableColumn("category", "Category", 130),
+                TableColumn("stock", "Stock", 90, sort_type="int"),
+            ],
             height=10,
+            empty_message="No low stock items right now.",
+            selectmode="browse",
         )
-        for column, label, width in [
-            ("name", "Product", 180),
-            ("category", "Category", 120),
-            ("stock", "Stock", 70),
-        ]:
-            self.low_stock_tree.heading(column, text=label)
-            self.low_stock_tree.column(column, width=width, minwidth=width, anchor="w", stretch=False)
-        attach_sorting(self.low_stock_tree, {"stock": "int"})
-        scrollbar = ttk.Scrollbar(low_stock_frame, orient="vertical", command=self.low_stock_tree.yview)
-        self.low_stock_tree.configure(yscrollcommand=scrollbar.set)
-        self.low_stock_tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="left", fill="y")
+        self.low_stock_table.pack(fill="both", expand=True)
 
         self.refresh_stats()
 
@@ -191,16 +185,12 @@ class DashboardView(ttk.Frame):
             )
 
     def _refresh_low_stock_list(self) -> None:
-        for item in self.low_stock_tree.get_children():
-            self.low_stock_tree.delete(item)
-
         low_stock_items = database.get_low_stock_products()
-        if not low_stock_items:
-            self.low_stock_tree.insert("", "end", values=("No low stock items", "", ""))
-            return
-
-        for row in low_stock_items:
-            self.low_stock_tree.insert("", "end", values=row)
+        rows = [
+            {"name": name, "category": category, "stock": stock}
+            for name, category, stock in low_stock_items
+        ]
+        self.low_stock_table.set_rows(rows)
 
 
 class MainApplication(tk.Tk):
@@ -307,6 +297,24 @@ class MainApplication(tk.Tk):
             darkcolor=[("active", CARD), ("!active", CARD)],
         )
         style.configure(
+            "Ghost.TMenubutton",
+            background="#F8FAFC",
+            foreground=TEXT,
+            borderwidth=1,
+            focusthickness=0,
+            focuscolor=SURFACE,
+            padding=(12, 8),
+            relief="solid",
+        )
+        style.map(
+            "Ghost.TMenubutton",
+            background=[("pressed", ACCENT), ("active", "#EFF6FF")],
+            foreground=[("pressed", TEXT), ("active", TEXT)],
+            bordercolor=[("active", ACCENT_STRONG), ("!active", BORDER)],
+            lightcolor=[("active", CARD), ("!active", CARD)],
+            darkcolor=[("active", CARD), ("!active", CARD)],
+        )
+        style.configure(
             "Treeview",
             background=CARD,
             fieldbackground=CARD,
@@ -318,6 +326,31 @@ class MainApplication(tk.Tk):
         style.map("Treeview", background=[("selected", ACCENT)], foreground=[("selected", TEXT)])
         style.configure("Treeview.Heading", background="#EEF6FF", foreground="black", relief="raised", padding=(12, 10))
         style.map("Treeview.Heading", background=[("active", "#E0F2FE")], foreground=[("active", TEXT)])
+        style.configure(
+            "DataTable.Treeview",
+            background=CARD,
+            fieldbackground=CARD,
+            foreground=TEXT,
+            rowheight=38,
+            borderwidth=0,
+            relief="flat",
+            font=("Segoe UI", 10),
+        )
+        style.map("DataTable.Treeview", background=[("selected", "#DBEAFE")], foreground=[("selected", TEXT)])
+        style.configure(
+            "DataTable.Treeview.Heading",
+            background="#F8FAFC",
+            foreground=TEXT,
+            relief="flat",
+            padding=(14, 12),
+            font=("Segoe UI Semibold", 10),
+        )
+        style.map(
+            "DataTable.Treeview.Heading",
+            background=[("active", "#EEF6FF")],
+            foreground=[("active", TEXT)],
+        )
+        style.configure("Table.Empty.TLabel", background=CARD, foreground=MUTED, font=("Segoe UI", 10))
         style.configure("App.TNotebook", background=SURFACE, borderwidth=0, tabmargins=(0, 0, 0, 0))
         style.configure(
             "App.TNotebook.Tab",

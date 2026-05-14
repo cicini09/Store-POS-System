@@ -8,7 +8,7 @@ from tkinter import messagebox, ttk
 
 from .. import database
 from ..utils import pdf_reports
-from ..utils.treeview_sort import attach_sorting
+from .data_table import ModernDataTable, TableColumn, currency_text
 
 
 class ReportsView(ttk.Frame):
@@ -17,8 +17,10 @@ class ReportsView(ttk.Frame):
     def __init__(self, master: tk.Misc, app) -> None:
         super().__init__(master, padding=16)
         self.app = app
-        self.inventory_rows: list[tuple] = []
-        self.orders_rows: list[tuple] = []
+        self.inventory_rows: list[dict] = []
+        self.orders_rows: list[dict] = []
+        self.inventory_results_var = tk.StringVar(value="0 rows")
+        self.orders_results_var = tk.StringVar(value="0 rows")
 
         self.notebook = ttk.Notebook(self, takefocus=False, style="App.TNotebook")
         self.notebook.pack(fill="both", expand=True)
@@ -39,6 +41,14 @@ class ReportsView(ttk.Frame):
         self.inventory_search_var = tk.StringVar()
         self.inventory_search_var.trace_add("write", lambda *_args: self._render_inventory_rows())
         ttk.Entry(top_bar, textvariable=self.inventory_search_var, width=36).pack(side="left", padx=8)
+        ttk.Label(top_bar, textvariable=self.inventory_results_var, style="App.Subtle.TLabel").pack(side="left", padx=(8, 0))
+        ttk.Label(
+            top_bar,
+            text="Keep product identity fixed and reveal secondary metrics when needed.",
+            style="App.Subtle.TLabel",
+        ).pack(side="left", padx=(16, 0))
+        self.inventory_columns_placeholder = ttk.Frame(top_bar, style="App.TFrame")
+        self.inventory_columns_placeholder.pack(side="right", padx=(8, 0))
         ttk.Button(
             top_bar,
             text="Export Products PDF",
@@ -46,19 +56,20 @@ class ReportsView(ttk.Frame):
             takefocus=False,
         ).pack(side="right")
 
-        self.inventory_tree = self._build_tree(
+        self.inventory_table = ModernDataTable(
             self.inventory_tab,
-            ("product", "category", "price", "on_hand", "sold"),
             [
-                ("product", "Product", 250),
-                ("category", "Category", 150),
-                ("price", "Price", 130),
-                ("on_hand", "On Hand", 100),
-                ("sold", "Units Sold", 100),
+                TableColumn("product", "Product", 250, frozen=True, can_hide=False),
+                TableColumn("category", "Category", 150),
+                TableColumn("price", "Price", 130, sort_type="float", formatter=currency_text),
+                TableColumn("on_hand", "On Hand", 110, sort_type="int"),
+                TableColumn("sold", "Units Sold", 120, sort_type="int"),
             ],
-            fill_parent=True,
+            height=18,
+            empty_message="No products matched the current report filters.",
         )
-        attach_sorting(self.inventory_tree, {"price": "float", "on_hand": "int", "sold": "int"})
+        self.inventory_table.pack(fill="both", expand=True)
+        self.inventory_table.create_columns_button(self.inventory_columns_placeholder).pack(side="right")
 
     def _build_orders_tab(self) -> None:
         top_bar = ttk.Frame(self.orders_tab, style="App.TFrame")
@@ -67,6 +78,9 @@ class ReportsView(ttk.Frame):
         self.orders_search_var = tk.StringVar()
         self.orders_search_var.trace_add("write", lambda *_args: self._render_orders_rows())
         ttk.Entry(top_bar, textvariable=self.orders_search_var, width=36).pack(side="left", padx=8)
+        ttk.Label(top_bar, textvariable=self.orders_results_var, style="App.Subtle.TLabel").pack(side="left", padx=(8, 0))
+        self.orders_columns_placeholder = ttk.Frame(top_bar, style="App.TFrame")
+        self.orders_columns_placeholder.pack(side="right", padx=(8, 0))
         ttk.Button(
             top_bar,
             text="Export Orders PDF",
@@ -82,26 +96,25 @@ class ReportsView(ttk.Frame):
         content.add(left_panel, weight=4)
         content.add(right_panel, weight=3)
 
-        self.orders_tree = self._build_tree(
+        self.orders_table = ModernDataTable(
             left_panel,
-            ("order_id", "customer", "email", "date", "total", "email_sent"),
             [
-                ("order_id", "Order ID", 90),
-                ("customer", "Customer", 170),
-                ("email", "Email", 220),
-                ("date", "Date", 170),
-                ("total", "Total", 120),
-                ("email_sent", "Email Sent", 100),
+                TableColumn("order_id", "Order ID", 100, frozen=True, can_hide=False, sort_type="int"),
+                TableColumn("customer", "Customer", 180, frozen=True, can_hide=False),
+                TableColumn("email", "Email", 240),
+                TableColumn("date", "Date", 180, sort_type="date"),
+                TableColumn("total", "Total", 130, sort_type="float", formatter=currency_text),
+                TableColumn("email_sent", "Email Sent", 110, sort_type="bool_text"),
             ],
-            fill_parent=True,
+            height=18,
+            empty_message="No orders matched the current report filters.",
+            selectmode="browse",
         )
-        attach_sorting(
-            self.orders_tree,
-            {"order_id": "int", "date": "date", "total": "float", "email_sent": "bool_text"},
-        )
-        self.orders_tree.bind("<<TreeviewSelect>>", self._on_order_select)
+        self.orders_table.pack(fill="both", expand=True)
+        self.orders_table.bind_selection_change(self._on_order_select)
+        self.orders_table.create_columns_button(self.orders_columns_placeholder).pack(side="right")
 
-        detail_header = ttk.LabelFrame(right_panel, text="Order Details", padding=14)
+        detail_header = ttk.LabelFrame(right_panel, text="Order Details", padding=14, style="App.TLabelframe")
         detail_header.pack(fill="x")
         self.order_detail_vars = {
             "order_id": tk.StringVar(value="-"),
@@ -124,169 +137,97 @@ class ReportsView(ttk.Frame):
             ttk.Label(row, text=f"{label_text}:", width=12).pack(side="left")
             ttk.Label(row, textvariable=self.order_detail_vars[key]).pack(side="left")
 
-        items_frame = ttk.LabelFrame(right_panel, text="Ordered Products", padding=14)
+        items_frame = ttk.LabelFrame(right_panel, text="Ordered Products", padding=14, style="App.TLabelframe")
         items_frame.pack(fill="both", expand=True, pady=(12, 0))
-        self.order_items_tree = self._build_tree(
+        self.order_items_table = ModernDataTable(
             items_frame,
-            ("product", "qty", "price", "subtotal"),
             [
-                ("product", "Product", 240),
-                ("qty", "Qty", 70),
-                ("price", "Unit Price", 120),
-                ("subtotal", "Subtotal", 120),
+                TableColumn("product", "Product", 240, frozen=True, can_hide=False),
+                TableColumn("qty", "Qty", 80, sort_type="int"),
+                TableColumn("price", "Unit Price", 130, sort_type="float", formatter=currency_text),
+                TableColumn("subtotal", "Subtotal", 130, sort_type="float", formatter=currency_text),
             ],
-            fill_parent=True,
+            height=12,
+            empty_message="Select an order to inspect its line items.",
+            selectmode="browse",
         )
-        attach_sorting(self.order_items_tree, {"qty": "int", "price": "float", "subtotal": "float"})
-        self._build_order_item_scroll_buttons(items_frame)
-
-    def _build_tree(
-        self,
-        parent: ttk.Frame,
-        columns: tuple[str, ...],
-        column_spec: list[tuple[str, str, int]],
-        fill_parent: bool = False,
-    ) -> ttk.Treeview:
-        wrapper = ttk.Frame(parent, style="App.TFrame")
-        wrapper.pack(fill="both", expand=fill_parent)
-        tree = ttk.Treeview(wrapper, columns=columns, show="headings", height=18)
-        for key, label, width in column_spec:
-            tree.heading(key, text=label)
-            tree.column(key, width=width, minwidth=width, anchor="w", stretch=False)
-        scrollbar = ttk.Scrollbar(wrapper, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=scrollbar.set)
-        tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="left", fill="y")
-        return tree
-
-    def _build_order_item_scroll_buttons(self, parent: ttk.LabelFrame) -> None:
-        self.order_items_prev_button = ttk.Button(
-            parent,
-            text="<",
-            width=2,
-            style="Ghost.TButton",
-            takefocus=False,
-            command=lambda: self._animate_order_items_scroll(-1),
-        )
-        self.order_items_next_button = ttk.Button(
-            parent,
-            text=">",
-            width=2,
-            style="Ghost.TButton",
-            takefocus=False,
-            command=lambda: self._animate_order_items_scroll(1),
-        )
-        self._hide_order_item_buttons()
-
-        for widget in (parent, self.order_items_tree):
-            widget.bind("<Leave>", self._hide_order_item_buttons, add="+")
-            widget.bind("<Motion>", self._update_order_item_buttons, add="+")
-        for button in (self.order_items_prev_button, self.order_items_next_button):
-            button.bind("<Enter>", self._show_both_order_item_buttons, add="+")
-            button.bind("<Leave>", self._hide_order_item_buttons, add="+")
-
-    def _show_both_order_item_buttons(self, _event=None) -> None:
-        self.order_items_prev_button.place(relx=0.02, rely=0.5, anchor="w")
-        self.order_items_next_button.place(relx=0.98, rely=0.5, anchor="e")
-
-    def _update_order_item_buttons(self, event) -> None:
-        width = max(event.widget.winfo_width(), 1)
-        threshold = 48
-        if event.x <= threshold:
-            self.order_items_prev_button.place(relx=0.02, rely=0.5, anchor="w")
-            self.order_items_next_button.place_forget()
-        elif event.x >= width - threshold:
-            self.order_items_next_button.place(relx=0.98, rely=0.5, anchor="e")
-            self.order_items_prev_button.place_forget()
-        else:
-            self._hide_order_item_buttons()
-
-    def _hide_order_item_buttons(self, _event=None) -> None:
-        self.order_items_prev_button.place_forget()
-        self.order_items_next_button.place_forget()
-
-    def _animate_order_items_scroll(self, direction: int, steps: int = 8) -> None:
-        def step(remaining: int) -> None:
-            if remaining <= 0:
-                return
-            self.order_items_tree.xview_scroll(direction, "units")
-            self.after(22, lambda: step(remaining - 1))
-
-        step(steps)
+        self.order_items_table.pack(fill="both", expand=True)
 
     def refresh_reports(self) -> None:
-        self.inventory_rows = database.get_inventory_report()
-        self.orders_rows = database.get_orders_report()
+        self.inventory_rows = [
+            {
+                "product": row[0],
+                "category": row[1],
+                "price": row[2],
+                "on_hand": row[3],
+                "sold": row[4],
+            }
+            for row in database.get_inventory_report()
+        ]
+        self.orders_rows = [
+            {
+                "order_id": row[0],
+                "customer": row[1],
+                "email": row[2],
+                "date": row[3],
+                "total": row[4],
+                "email_sent": row[5],
+            }
+            for row in database.get_orders_report()
+        ]
         self._render_inventory_rows()
         self._render_orders_rows()
 
     def _render_inventory_rows(self) -> None:
-        for item in self.inventory_tree.get_children():
-            self.inventory_tree.delete(item)
-
         query = self.inventory_search_var.get().strip().lower()
-        for row in self.inventory_rows:
-            haystack = " ".join(str(value).lower() for value in row)
-            if query and query not in haystack:
-                continue
-            self.inventory_tree.insert(
-                "",
-                "end",
-                values=(row[0], row[1], f"PHP {row[2]:,.2f}", row[3], row[4]),
-            )
+        rows = [
+            row for row in self.inventory_rows
+            if not query or query in " ".join(str(value).lower() for value in row.values())
+        ]
+        self.inventory_table.set_rows(rows)
+        count = len(rows)
+        self.inventory_results_var.set(f"{count} row{'s' if count != 1 else ''}")
 
     def _render_orders_rows(self) -> None:
-        for item in self.orders_tree.get_children():
-            self.orders_tree.delete(item)
-
         query = self.orders_search_var.get().strip().lower()
-        for row in self.orders_rows:
-            haystack = " ".join(str(value).lower() for value in row)
-            if query and query not in haystack:
-                continue
-            self.orders_tree.insert(
-                "",
-                "end",
-                values=(row[0], row[1], row[2], row[3], f"PHP {row[4]:,.2f}", row[5]),
-            )
+        rows = [
+            row for row in self.orders_rows
+            if not query or query in " ".join(str(value).lower() for value in row.values())
+        ]
+        self.orders_table.set_rows(rows)
+        count = len(rows)
+        self.orders_results_var.set(f"{count} row{'s' if count != 1 else ''}")
 
-        if self.orders_tree.get_children():
-            first_item = self.orders_tree.get_children()[0]
-            self.orders_tree.selection_set(first_item)
-            self._on_order_select()
+        if rows:
+            self.orders_table.select_first()
         else:
             self._clear_order_details()
 
     def _on_order_select(self, _event=None) -> None:
-        selection = self.orders_tree.selection()
-        if not selection:
+        row = self.orders_table.get_selected_row()
+        if not row:
             self._clear_order_details()
             return
 
-        values = self.orders_tree.item(selection[0], "values")
-        order_id = int(values[0])
+        order_id = int(row["order_id"])
         self.order_detail_vars["order_id"].set(str(order_id))
-        self.order_detail_vars["customer"].set(values[1])
-        self.order_detail_vars["email"].set(values[2])
-        self.order_detail_vars["date"].set(values[3])
-        self.order_detail_vars["total"].set(values[4])
-        self.order_detail_vars["status"].set(values[5])
+        self.order_detail_vars["customer"].set(row["customer"])
+        self.order_detail_vars["email"].set(row["email"])
+        self.order_detail_vars["date"].set(row["date"])
+        self.order_detail_vars["total"].set(currency_text(row["total"]))
+        self.order_detail_vars["status"].set(row["email_sent"])
 
-        for item in self.order_items_tree.get_children():
-            self.order_items_tree.delete(item)
-
-        for row in database.get_order_items(order_id):
-            self.order_items_tree.insert(
-                "",
-                "end",
-                values=(row[0], row[1], f"PHP {row[2]:,.2f}", f"PHP {row[3]:,.2f}"),
-            )
+        self.order_items_table.set_rows(
+            [
+                {"product": item[0], "qty": item[1], "price": item[2], "subtotal": item[3]}
+                for item in database.get_order_items(order_id)
+            ]
+        )
 
     def _clear_order_details(self) -> None:
         for variable in self.order_detail_vars.values():
             variable.set("-")
-        for item in self.order_items_tree.get_children():
-            self.order_items_tree.delete(item)
+        self.order_items_table.set_rows([])
 
     def export_inventory_pdf(self) -> None:
         rows = database.get_inventory_report()

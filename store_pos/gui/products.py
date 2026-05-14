@@ -7,8 +7,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from .. import database
-from ..utils.treeview_sort import attach_sorting
 from ..utils import validators
+from .data_table import ModernDataTable, TableColumn, currency_text, truncate_text
 
 
 class ProductDialog(tk.Toplevel):
@@ -98,42 +98,47 @@ class ProductsView(ttk.Frame):
         self.app = app
 
         self.search_var = tk.StringVar()
+        self.results_var = tk.StringVar(value="0 products")
         self.search_var.trace_add("write", lambda *_args: self.load_products())
 
-        top_bar = ttk.Frame(self)
+        top_bar = ttk.Frame(self, style="App.TFrame")
         top_bar.pack(fill="x", pady=(0, 12))
         ttk.Label(top_bar, text="Search Products").pack(side="left")
         ttk.Entry(top_bar, textvariable=self.search_var, width=32).pack(side="left", padx=8)
+        ttk.Label(top_bar, textvariable=self.results_var, style="App.Subtle.TLabel").pack(side="left", padx=(8, 0))
+        ttk.Label(
+            top_bar,
+            text="Freeze core fields and reveal secondary columns only when needed.",
+            style="App.Subtle.TLabel",
+        ).pack(side="left", padx=(16, 0))
+        self.columns_button_placeholder = ttk.Frame(top_bar, style="App.TFrame")
+        self.columns_button_placeholder.pack(side="right", padx=(8, 0))
         ttk.Button(top_bar, text="Add Product", command=self.open_add_dialog, takefocus=False).pack(side="right")
 
-        content = ttk.Frame(self)
+        content = ttk.Frame(self, style="App.TFrame")
         content.pack(fill="both", expand=True)
 
-        left_frame = ttk.Frame(content)
-        right_frame = ttk.LabelFrame(content, text="Actions", padding=12)
+        left_frame = ttk.Frame(content, style="App.TFrame")
+        right_frame = ttk.LabelFrame(content, text="Bulk Actions", padding=12, style="App.TLabelframe")
         left_frame.pack(side="left", fill="both", expand=True)
         right_frame.pack(side="left", fill="y", padx=(16, 0))
 
-        columns = ("id", "name", "category", "price", "stock", "description")
-        self.tree = ttk.Treeview(left_frame, columns=columns, show="headings", height=18)
-        headings = {
-            "id": "ID",
-            "name": "Name",
-            "category": "Category",
-            "price": "Price",
-            "stock": "Stock",
-            "description": "Description",
-        }
-        widths = {"id": 70, "name": 230, "category": 150, "price": 120, "stock": 90, "description": 340}
-        for column in columns:
-            self.tree.heading(column, text=headings[column])
-            self.tree.column(column, width=widths[column], minwidth=widths[column], anchor="w", stretch=False)
-        attach_sorting(self.tree, {"id": "int", "price": "float", "stock": "int"})
-
-        scrollbar = ttk.Scrollbar(left_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="left", fill="y")
+        self.table = ModernDataTable(
+            left_frame,
+            [
+                TableColumn("id", "ID", 90, frozen=True, can_hide=False, sort_type="int"),
+                TableColumn("name", "Product", 240, frozen=True, can_hide=False),
+                TableColumn("category", "Category", 160),
+                TableColumn("price", "Price", 130, sort_type="float", formatter=currency_text),
+                TableColumn("stock", "Stock", 110, sort_type="int"),
+                TableColumn("description", "Description", 340, hidden=True, formatter=truncate_text),
+            ],
+            height=18,
+            empty_message="No products match the current search.",
+            selectmode="extended",
+        )
+        self.table.pack(fill="both", expand=True)
+        self.table.create_columns_button(self.columns_button_placeholder).pack(side="right")
 
         ttk.Button(right_frame, text="Edit Selected", command=self.open_edit_dialog, takefocus=False).pack(fill="x", pady=4)
         ttk.Button(right_frame, text="Delete Selected", command=self.delete_selected, takefocus=False).pack(fill="x", pady=4)
@@ -142,58 +147,80 @@ class ProductsView(ttk.Frame):
         self.load_products()
 
     def load_products(self) -> None:
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-
-        for product in database.get_all_products(self.search_var.get()):
-            self.tree.insert(
-                "",
-                "end",
-                values=(
-                    product.id,
-                    product.name,
-                    product.category,
-                    f"PHP {product.price:,.2f}",
-                    product.stock_quantity,
-                    product.description,
-                ),
-            )
+        rows = [
+            {
+                "id": product.id,
+                "name": product.name,
+                "category": product.category,
+                "price": product.price,
+                "stock": product.stock_quantity,
+                "description": product.description,
+            }
+            for product in database.get_all_products(self.search_var.get())
+        ]
+        self.table.set_rows(rows)
+        count = len(rows)
+        self.results_var.set(f"{count} product{'s' if count != 1 else ''}")
 
     def open_add_dialog(self) -> None:
         ProductDialog(self, "Add Product", self._add_product)
 
     def open_edit_dialog(self) -> None:
-        product = self._get_selected_product()
-        if not product:
+        selected_products = self.table.get_selected_rows()
+        if not selected_products:
             messagebox.showwarning("No Selection", "Select a product to edit.", parent=self)
             return
+        if len(selected_products) > 1:
+            messagebox.showwarning("Single Selection Required", "Select only one product to edit.", parent=self)
+            return
+        product = self._to_product_payload(selected_products[0])
         ProductDialog(self, "Edit Product", lambda *args: self._edit_product(product["id"], *args), product)
 
     def delete_selected(self) -> None:
-        product = self._get_selected_product()
-        if not product:
+        selected_products = self.table.get_selected_rows()
+        if not selected_products:
             messagebox.showwarning("No Selection", "Select a product to delete.", parent=self)
             return
 
+        names = [product["name"] for product in selected_products]
+        item_count = len(selected_products)
         confirmed = messagebox.askyesno(
-            "Delete Product",
-            f"Delete '{product['name']}' from inventory?",
+            "Delete Products" if item_count > 1 else "Delete Product",
+            f"Delete {item_count} selected product{'s' if item_count != 1 else ''} from inventory?",
             parent=self,
         )
         if not confirmed:
             return
 
+        deleted_count = 0
+        blocked_names: list[str] = []
         try:
-            database.delete_product(product["id"])
-        except sqlite3.IntegrityError:
+            for product in selected_products:
+                try:
+                    database.delete_product(product["id"])
+                    deleted_count += 1
+                except sqlite3.IntegrityError:
+                    blocked_names.append(product["name"])
+        except sqlite3.DatabaseError as exc:
             messagebox.showerror(
-                "Delete Blocked",
-                "This product is already linked to orders and cannot be deleted.",
+                "Delete Failed",
+                str(exc),
                 parent=self,
             )
             return
 
-        self.app.set_status(f"Deleted product: {product['name']}")
+        if blocked_names:
+            messagebox.showerror(
+                "Delete Blocked",
+                "Some products are already linked to orders and could not be deleted:\n"
+                + "\n".join(blocked_names),
+                parent=self,
+            )
+
+        if deleted_count:
+            status_label = ", ".join(names[:2])
+            suffix = "..." if len(names) > 2 else ""
+            self.app.set_status(f"Deleted {deleted_count} product(s): {status_label}{suffix}")
         self.app.refresh_all()
 
     def _add_product(self, name: str, description: str, price: float, stock_quantity: int, category: str) -> None:
@@ -215,15 +242,15 @@ class ProductsView(ttk.Frame):
         self.app.refresh_all()
 
     def _get_selected_product(self) -> dict | None:
-        selection = self.tree.selection()
-        if not selection:
-            return None
-        values = self.tree.item(selection[0], "values")
+        row = self.table.get_selected_row()
+        return self._to_product_payload(row) if row else None
+
+    def _to_product_payload(self, row: dict) -> dict:
         return {
-            "id": int(values[0]),
-            "name": values[1],
-            "category": values[2],
-            "price": values[3].replace("PHP ", "").replace(",", ""),
-            "stock_quantity": values[4],
-            "description": values[5],
+            "id": int(row["id"]),
+            "name": row["name"],
+            "category": row["category"],
+            "price": row["price"],
+            "stock_quantity": row["stock"],
+            "description": row["description"],
         }

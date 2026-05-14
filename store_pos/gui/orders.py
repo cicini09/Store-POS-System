@@ -9,7 +9,7 @@ from tkinter import messagebox, ttk
 
 from .. import database
 from ..utils import email_sender, validators
-from ..utils.treeview_sort import attach_sorting
+from .data_table import ModernDataTable, TableColumn, currency_text
 
 
 class OrdersView(ttk.Frame):
@@ -21,7 +21,7 @@ class OrdersView(ttk.Frame):
         self.products_by_name: dict[str, dict] = {}
         self.cart: list[dict] = []
 
-        customer_frame = ttk.LabelFrame(self, text="Customer Details", padding=12)
+        customer_frame = ttk.LabelFrame(self, text="Customer Details", padding=12, style="App.TLabelframe")
         customer_frame.pack(fill="x", pady=(0, 12))
 
         self.customer_name_var = tk.StringVar()
@@ -32,7 +32,7 @@ class OrdersView(ttk.Frame):
         self._build_customer_row(customer_frame, "Email", self.customer_email_var, 1)
         self._build_customer_row(customer_frame, "Phone", self.customer_phone_var, 2)
 
-        order_frame = ttk.LabelFrame(self, text="Add Product to Cart", padding=12)
+        order_frame = ttk.LabelFrame(self, text="Add Product to Cart", padding=12, style="App.TLabelframe")
         order_frame.pack(fill="x", pady=(0, 12))
 
         self.product_var = tk.StringVar()
@@ -66,30 +66,32 @@ class OrdersView(ttk.Frame):
 
         order_frame.columnconfigure(1, weight=1)
 
-        cart_frame = ttk.LabelFrame(self, text="Cart", padding=12)
+        cart_frame = ttk.LabelFrame(self, text="Cart", padding=12, style="App.TLabelframe")
         cart_frame.pack(fill="both", expand=True)
 
-        cart_columns = ("product", "qty", "unit_price", "subtotal")
-        self.cart_tree = ttk.Treeview(cart_frame, columns=cart_columns, show="headings", height=13)
-        for column, label, width in [
-            ("product", "Product", 280),
-            ("qty", "Qty", 90),
-            ("unit_price", "Unit Price", 130),
-            ("subtotal", "Subtotal", 130),
-        ]:
-            self.cart_tree.heading(column, text=label)
-            self.cart_tree.column(column, width=width, minwidth=width, anchor="w", stretch=False)
-        attach_sorting(self.cart_tree, {"qty": "int", "unit_price": "float", "subtotal": "float"})
+        self.cart_table = ModernDataTable(
+            cart_frame,
+            [
+                TableColumn("product", "Product", 300, frozen=True, can_hide=False),
+                TableColumn("qty", "Qty", 90, sort_type="int"),
+                TableColumn("unit_price", "Unit Price", 130, sort_type="float", formatter=currency_text),
+                TableColumn("subtotal", "Subtotal", 140, sort_type="float", formatter=currency_text),
+            ],
+            height=13,
+            empty_message="Add products to start building the cart.",
+            selectmode="extended",
+        )
+        self.cart_table.pack(fill="both", expand=True)
 
-        cart_scrollbar = ttk.Scrollbar(cart_frame, orient="vertical", command=self.cart_tree.yview)
-        self.cart_tree.configure(yscrollcommand=cart_scrollbar.set)
-        self.cart_tree.pack(side="left", fill="both", expand=True)
-        cart_scrollbar.pack(side="left", fill="y")
-
-        action_frame = ttk.Frame(self)
+        action_frame = ttk.Frame(self, style="App.TFrame")
         action_frame.pack(fill="x", pady=(12, 0))
         self.total_var = tk.StringVar(value="Total: PHP 0.00")
         ttk.Label(action_frame, textvariable=self.total_var, font=("Segoe UI", 12, "bold")).pack(side="left")
+        ttk.Label(
+            action_frame,
+            text="Use Shift + mouse wheel for horizontal scrolling when needed.",
+            style="App.Subtle.TLabel",
+        ).pack(side="left", padx=(16, 0))
         ttk.Button(action_frame, text="Remove Selected Item", command=self.remove_selected_item, takefocus=False).pack(side="right")
         ttk.Button(action_frame, text="Place Order", command=self.place_order, takefocus=False).pack(side="right", padx=(0, 10))
 
@@ -157,13 +159,13 @@ class OrdersView(ttk.Frame):
         self._refresh_cart()
 
     def remove_selected_item(self) -> None:
-        selection = self.cart_tree.selection()
-        if not selection:
+        selected_rows = self.cart_table.get_selected_rows()
+        if not selected_rows:
             messagebox.showwarning("No Selection", "Select a cart item to remove.", parent=self)
             return
 
-        index = self.cart_tree.index(selection[0])
-        del self.cart[index]
+        selected_ids = {row["product_id"] for row in selected_rows}
+        self.cart = [item for item in self.cart if item["product_id"] not in selected_ids]
         self._refresh_cart()
 
     def place_order(self) -> None:
@@ -218,24 +220,22 @@ class OrdersView(ttk.Frame):
         self._refresh_cart()
 
     def _refresh_cart(self) -> None:
-        for item in self.cart_tree.get_children():
-            self.cart_tree.delete(item)
-
         total = 0.0
+        rows: list[dict] = []
         for item in self.cart:
             subtotal = round(item["quantity"] * item["unit_price"], 2)
             total += subtotal
-            self.cart_tree.insert(
-                "",
-                "end",
-                values=(
-                    item["product_name"],
-                    item["quantity"],
-                    f"PHP {item['unit_price']:,.2f}",
-                    f"PHP {subtotal:,.2f}",
-                ),
+            rows.append(
+                {
+                    "product_id": item["product_id"],
+                    "product": item["product_name"],
+                    "qty": item["quantity"],
+                    "unit_price": item["unit_price"],
+                    "subtotal": subtotal,
+                }
             )
 
+        self.cart_table.set_rows(rows)
         self.total_var.set(f"Total: PHP {total:,.2f}")
 
     def _send_receipt_async(self, order_id: int, order_data: dict, customer_email: str) -> None:
