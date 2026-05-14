@@ -1,0 +1,154 @@
+[2026-05-15T01:17:57] MOCK EMAIL
+To: novawinter134@gmail.com
+Order ID: 6
+Hello Laiza,
+
+Thank you for shopping at ElectroHub.
+Order ID: 6
+Order Date: 2026-05-14 17:17:57
+
+Items:
+- 1080p Webcam x1 @ 1,899.00 = 1,899.00
+- Mechanical Keyboard x1 @ 2,499.00 = 2,499.00
+- Wireless Mouse x1 @ 899.00 = 899.00
+
+Total Amount: 5,297.00
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T01:19:28] MOCK EMAIL
+To: novawinter134@gmail.com
+Order ID: 7
+Hello Laiza,
+
+Thank you for shopping at ElectroHub.
+Order ID: 7
+Order Date: 2026-05-14 17:19:28
+
+Items:
+- Laptop Pro 14 x1 @ 64,999.00 = 64,999.00
+
+Total Amount: 64,999.00
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T01:20:20] MOCK EMAIL
+To: novawinter134@gmail.com
+Order ID: 8
+Hello Laiza,
+
+Thank you for shopping at ElectroHub.
+Order ID: 8
+Order Date: 2026-05-14 17:20:20
+
+Items:
+- 1080p Webcam x1 @ 1,899.00 = 1,899.00
+
+Total Amount: 1,899.00
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T01:28:58] EMAIL FAILED
+To: test@example.com
+Order ID: 999
+SMTP is enabled but credentials are not configured in config.py or environment variables.
+Hello Test User,
+
+Thank you for shopping at ElectroHub.
+Order ID: 999
+Order Date: 2026-05-15 01:00:00
+
+Items:
+- Sample x1 @ 123.45 = 123.45
+
+Total Amount: 123.45
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T02:01:51] EMAIL FAILED
+To: novawinter134@gmail.com
+Order ID: 1000
+[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions
+Hello SMTP Test,
+
+Thank you for shopping at ElectroHub.
+Order ID: 1000
+Order Date: 2026-05-15 01:30:00
+
+Items:
+- SMTP Test Item x1 @ 123.45 = 123.45
+
+Total Amount: 123.45
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T02:02:07] EMAIL FAILED
+To: novawinter134@gmail.com
+Order ID: 1000
+(535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 41be03b00d2f7-c82bb121cd6sm3124730a12.30 - gsmtp')
+Hello SMTP Test,
+
+Thank you for shopping at ElectroHub.
+Order ID: 1000
+Order Date: 2026-05-15 01:30:00
+
+Items:
+- SMTP Test Item x1 @ 123.45 = 123.45
+
+Total Amount: 123.45
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T02:03:46] EMAIL FAILED
+To: novawinter134@gmail.com
+Order ID: 1001
+(535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 98e67ed59e1d1-36927ed84f1sm1672897a91.4 - gsmtp')
+Hello SMTP Retry Test,
+
+Thank you for shopping at ElectroHub.
+Order ID: 1001
+Order Date: 2026-05-15 02:05:00
+
+Items:
+- SMTP Test Item x1 @ 123.45 = 123.45
+
+Total Amount: 123.45
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T02:04:53] EMAIL SENT
+To: novawinter134@gmail.com
+Order ID: 1002
+Receipt delivered successfully.
+Hello SMTP Retry Test 2,
+
+Thank you for shopping at ElectroHub.
+Order ID: 1002
+Order Date: 2026-05-15 02:08:00
+
+Items:
+- SMTP Test Item x1 @ 123.45 = 123.45
+
+Total Amount: 123.45
+
+We appreciate your purchase.
+------------------------------------------------------------------------
+[2026-05-15T02:06:15] EMAIL SENT
+To: johnurcheldizon2016@gmail.com
+Order ID: 9
+Receipt delivered successfully.
+Hello Laiza,
+
+Thank you for shopping at ElectroHub.
+Order ID: 9
+Order Date: 2026-05-14 18:06:12
+
+Items:
+- Gaming Chair x1 @ 7,999.00 = 7,999.00
+- Smartphone Stand x1 @ 499.00 = 499.00
+- Wireless Mouse x1 @ 899.00 = 899.00
+
+Total Amount: 9,397.00
+
+We appreciate your purchase.
+------------------------------------------------------------------------
