@@ -30,10 +30,12 @@ class LoginWindow(tk.Tk):
         super().__init__()
         self.on_success = on_success
         self.login_succeeded = False
+        self.logged_in_user = ""
         self.title(f"{APP_TITLE} - Login")
         self.protocol("WM_DELETE_WINDOW", self._handle_close)
         self._open_maximized()
         self.configure(bg=RIGHT_BG)
+        self.attributes("-alpha", 0.0)  # Start invisible for fade-in
 
         # Root container — two halves
         container = tk.Frame(self, bg=RIGHT_BG)
@@ -253,8 +255,24 @@ class LoginWindow(tk.Tk):
     def _attempt_login(self) -> None:
         username = self.username_var.get().strip()
         password = self.password_var.get()
+
+        # Strict required-field validation
+        if not username:
+            self.error_var.set("Username is required.")
+            return
+        if not password:
+            self.error_var.set("Password is required.")
+            return
+        if len(username) < 3:
+            self.error_var.set("Username must be at least 3 characters.")
+            return
+        if len(password) < 5:
+            self.error_var.set("Password must be at least 5 characters.")
+            return
+
         if database.validate_login(username, password):
             self.login_succeeded = True
+            self.logged_in_user = username
             self.on_success()
             self.destroy()
             return
@@ -270,6 +288,17 @@ class LoginWindow(tk.Tk):
         self.attributes("-topmost", True)
         self.after(200, lambda: self.attributes("-topmost", False))
         self.focus_force()
+        # Fade-in animation
+        self._fade_in(0.0)
+
+    def _fade_in(self, alpha: float) -> None:
+        """Gradually increase window opacity for a smooth entrance."""
+        if alpha < 1.0:
+            alpha = min(alpha + 0.08, 1.0)
+            self.attributes("-alpha", alpha)
+            self.after(20, lambda: self._fade_in(alpha))
+        else:
+            self.attributes("-alpha", 1.0)
 
     def _open_maximized(self) -> None:
         try:

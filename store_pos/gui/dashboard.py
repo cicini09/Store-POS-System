@@ -208,12 +208,15 @@ class DashboardView(ttk.Frame):
 class MainApplication(tk.Tk):
     """Tk root window for the POS system."""
 
-    def __init__(self) -> None:
+    def __init__(self, username: str = "admin") -> None:
         super().__init__()
+        self.username = username
+        self.logged_out = False
         self.title(APP_TITLE)
         self.geometry(APP_GEOMETRY)
         self.minsize(1100, 680)
         self.configure(bg=SURFACE)
+        self.attributes("-alpha", 0.0)  # Start invisible for fade-in
         self._open_maximized()
 
         self._configure_style()
@@ -251,6 +254,16 @@ class MainApplication(tk.Tk):
         self.lift()
         self.focus_force()
         self.set_status("Login successful. Welcome back.")
+        self._fade_in(0.0)
+
+    def _fade_in(self, alpha: float) -> None:
+        """Gradually increase window opacity for a smooth entrance."""
+        if alpha < 1.0:
+            alpha = min(alpha + 0.06, 1.0)
+            self.attributes("-alpha", alpha)
+            self.after(18, lambda: self._fade_in(alpha))
+        else:
+            self.attributes("-alpha", 1.0)
 
     def set_status(self, message: str) -> None:
         self.status_var.set(message)
@@ -311,9 +324,71 @@ class MainApplication(tk.Tk):
 
         tk.Frame(sidebar, bg=SIDEBAR).pack(fill="both", expand=True)
 
+        # --- Profile section at bottom ---
+        tk.Frame(sidebar, bg="#1F2937", height=1).pack(fill="x", pady=(0, 14))
+
+        profile_frame = tk.Frame(sidebar, bg=SIDEBAR)
+        profile_frame.pack(fill="x", pady=(0, 10))
+
+        # Avatar circle
+        avatar = tk.Canvas(profile_frame, width=36, height=36, bg=SIDEBAR, highlightthickness=0)
+        avatar.pack(side="left", padx=(0, 10))
+        avatar.create_oval(2, 2, 34, 34, fill=SIDEBAR_ACTIVE, outline="")
+        initial = self.username[0].upper() if self.username else "A"
+        avatar.create_text(18, 18, text=initial, fill="#FFFFFF", font=("Segoe UI Bold", 12))
+
+        profile_info = tk.Frame(profile_frame, bg=SIDEBAR)
+        profile_info.pack(side="left", fill="x", expand=True)
+        tk.Label(
+            profile_info,
+            text=self.username.capitalize(),
+            bg=SIDEBAR,
+            fg="#F9FAFB",
+            font=("Segoe UI Semibold", 10),
+            anchor="w",
+        ).pack(fill="x")
+        tk.Label(
+            profile_info,
+            text="Administrator",
+            bg=SIDEBAR,
+            fg=SIDEBAR_MUTED,
+            font=("Segoe UI", 9),
+            anchor="w",
+        ).pack(fill="x")
+
+        # Logout button
+        logout_btn = tk.Button(
+            sidebar,
+            text="\u2190  Logout",
+            command=self._logout,
+            bg=SIDEBAR,
+            fg="#F87171",
+            activebackground=SIDEBAR_HOVER,
+            activeforeground="#FCA5A5",
+            bd=0,
+            relief="flat",
+            cursor="hand2",
+            anchor="w",
+            padx=14,
+            pady=10,
+            font=("Segoe UI Semibold", 10),
+            takefocus=False,
+        )
+        logout_btn.pack(fill="x", pady=(4, 0))
+        logout_btn.bind("<Enter>", lambda e: logout_btn.configure(bg=SIDEBAR_HOVER))
+        logout_btn.bind("<Leave>", lambda e: logout_btn.configure(bg=SIDEBAR))
+
+    def _logout(self) -> None:
+        """Log out and return to the login screen."""
+        from tkinter import messagebox
+        if messagebox.askyesno("Logout", "Are you sure you want to logout?", parent=self):
+            self.logged_out = True
+            self.destroy()
+
     def show_page(self, page_index: int) -> None:
         self.notebook.select(page_index)
         self._update_navigation_state(page_index)
+        self._animate_page_transition()
 
     def _on_page_changed(self, _event: tk.Event) -> None:
         selected_tab_id = self.notebook.select()
@@ -321,6 +396,32 @@ class MainApplication(tk.Tk):
             return
         page_index = self.notebook.index(selected_tab_id)
         self._update_navigation_state(page_index)
+        self._animate_page_transition()
+
+    def _animate_page_transition(self) -> None:
+        """Quick fade transition when switching pages."""
+        selected_tab_id = self.notebook.select()
+        if not selected_tab_id:
+            return
+        page_index = self.notebook.index(selected_tab_id)
+        frame = self.notebook.nametowidget(selected_tab_id)
+        # Briefly reduce opacity of the content and fade back in
+        self._page_fade_step(frame, 0.3, rising=True)
+
+    def _page_fade_step(self, frame: tk.Widget, alpha: float, rising: bool) -> None:
+        """Animate frame opacity using place overlay technique."""
+        if rising and alpha < 1.0:
+            alpha = min(alpha + 0.12, 1.0)
+            try:
+                # Use the window alpha as a subtle pulse
+                current = float(self.attributes("-alpha"))
+                blended = 0.85 + (alpha * 0.15)
+                self.attributes("-alpha", blended)
+            except Exception:
+                pass
+            self.after(12, lambda: self._page_fade_step(frame, alpha, True))
+        else:
+            self.attributes("-alpha", 1.0)
 
     def _on_navigation_hover(self, event: tk.Event, page_index: int) -> None:
         if self.notebook.index(self.notebook.select()) != page_index:

@@ -313,9 +313,23 @@ class OrdersView(ttk.Frame):
         if errors:
             messagebox.showerror("Validation Error", "\n".join(errors), parent=self)
             return
+
+        # Customer name format validation
+        name_error = validators.validate_customer_name(self.customer_name_var.get())
+        if name_error:
+            messagebox.showerror("Validation Error", name_error, parent=self)
+            return
+
         if not validators.is_valid_email(self.customer_email_var.get()):
             messagebox.showerror("Validation Error", "Enter a valid email address.", parent=self)
             return
+
+        # Phone format validation (optional but must be valid if provided)
+        phone_error = validators.validate_phone(self.customer_phone_var.get())
+        if phone_error:
+            messagebox.showerror("Validation Error", phone_error, parent=self)
+            return
+
         if not self.cart:
             messagebox.showerror("Empty Cart", "Add at least one product to the cart first.", parent=self)
             return

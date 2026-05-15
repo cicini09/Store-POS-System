@@ -33,6 +33,7 @@ class ProductDialog(tk.Toplevel):
     ) -> None:
         super().__init__(master)
         self.on_save = on_save
+        self._editing_id = (product or {}).get("id", None)
         self.title(title)
         self.resizable(False, False)
         self.configure(bg=PRODUCT_DIALOG_BACKGROUND)
@@ -123,6 +124,16 @@ class ProductDialog(tk.Toplevel):
                 "Stock quantity": self.stock_var.get(),
             }
         )
+
+        # Additional field-level validations
+        name_error = validators.validate_product_name(self.name_var.get())
+        if name_error:
+            errors.append(name_error)
+
+        category_error = validators.validate_category(self.category_var.get())
+        if category_error and "required" not in (category_error or ""):
+            errors.append(category_error)
+
         if errors:
             messagebox.showerror("Validation Error", "\n".join(errors), parent=self)
             return
@@ -133,6 +144,21 @@ class ProductDialog(tk.Toplevel):
         except ValueError as exc:
             messagebox.showerror("Validation Error", str(exc), parent=self)
             return
+
+        # Duplicate product name check
+        from .. import database
+        existing = database.get_all_products(self.name_var.get().strip())
+        for product in existing:
+            if product.name.lower() == self.name_var.get().strip().lower():
+                # Allow if editing the same product
+                if self._editing_id and product.id == self._editing_id:
+                    continue
+                messagebox.showerror(
+                    "Duplicate Product",
+                    f"A product named '{product.name}' already exists.",
+                    parent=self,
+                )
+                return
 
         self.on_save(
             self.name_var.get().strip(),

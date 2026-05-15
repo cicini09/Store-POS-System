@@ -25,20 +25,27 @@ def configure_tk_environment() -> None:
 
 
 def main() -> None:
-    """Initialize the database and start the Tkinter application."""
+    """Initialize the database and start the Tkinter application with login/logout loop."""
     configure_tk_environment()
     database.init_db()
     database.seed_demo_data()
 
-    login_window = LoginWindow(on_success=lambda: None)
-    login_window.mainloop()
+    while True:
+        login_window = LoginWindow(on_success=lambda: None)
+        login_window.mainloop()
 
-    if not login_window.login_succeeded:
-        return
+        if not login_window.login_succeeded:
+            break
 
-    app = MainApplication()
-    app.show_main()
-    app.mainloop()
+        logged_in_user = login_window.logged_in_user
+
+        app = MainApplication(username=logged_in_user)
+        app.show_main()
+        app.mainloop()
+
+        # If user logged out, loop back to login; otherwise exit
+        if not getattr(app, "logged_out", False):
+            break
 
 
 if __name__ == "__main__":
