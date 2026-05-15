@@ -106,32 +106,28 @@ class ProductsView(ttk.Frame):
         ttk.Label(top_bar, text="Search Products").pack(side="left")
         ttk.Entry(top_bar, textvariable=self.search_var, width=32).pack(side="left", padx=8)
         ttk.Label(top_bar, textvariable=self.results_var, style="App.Subtle.TLabel").pack(side="left", padx=(8, 0))
-        ttk.Label(
-            top_bar,
-            text="Freeze core fields and reveal secondary columns only when needed.",
-            style="App.Subtle.TLabel",
-        ).pack(side="left", padx=(16, 0))
         self.columns_button_placeholder = ttk.Frame(top_bar, style="App.TFrame")
         self.columns_button_placeholder.pack(side="right", padx=(8, 0))
+        ttk.Button(top_bar, text="Refresh", command=self.load_products, takefocus=False).pack(side="right", padx=(0, 8))
+        ttk.Button(top_bar, text="Delete Selected", command=self.delete_selected, takefocus=False).pack(side="right", padx=(0, 8))
+        ttk.Button(top_bar, text="Edit Selected", command=self.open_edit_dialog, takefocus=False).pack(side="right", padx=(0, 8))
         ttk.Button(top_bar, text="Add Product", command=self.open_add_dialog, takefocus=False).pack(side="right")
 
         content = ttk.Frame(self, style="App.TFrame")
         content.pack(fill="both", expand=True)
 
         left_frame = ttk.Frame(content, style="App.TFrame")
-        right_frame = ttk.LabelFrame(content, text="Bulk Actions", padding=12, style="App.TLabelframe")
         left_frame.pack(side="left", fill="both", expand=True)
-        right_frame.pack(side="left", fill="y", padx=(16, 0))
 
         self.table = ModernDataTable(
             left_frame,
             [
-                TableColumn("id", "ID", 90, frozen=True, can_hide=False, sort_type="int"),
-                TableColumn("name", "Product", 240, frozen=True, can_hide=False),
-                TableColumn("category", "Category", 160),
-                TableColumn("price", "Price", 130, sort_type="float", formatter=currency_text),
-                TableColumn("stock", "Stock", 110, sort_type="int"),
-                TableColumn("description", "Description", 340, hidden=True, formatter=truncate_text),
+                TableColumn("name", "Product", 280, frozen=True, can_hide=False),
+                TableColumn("category", "Category", 180),
+                TableColumn("price", "Price", 150, sort_type="float", formatter=currency_text),
+                TableColumn("stock", "Stock", 120, sort_type="int"),
+                TableColumn("id", "ID", 90, hidden=True, sort_type="int"),
+                TableColumn("description", "Description", 420, hidden=True, formatter=truncate_text),
             ],
             height=18,
             empty_message="No products match the current search.",
@@ -139,10 +135,6 @@ class ProductsView(ttk.Frame):
         )
         self.table.pack(fill="both", expand=True)
         self.table.create_columns_button(self.columns_button_placeholder).pack(side="right")
-
-        ttk.Button(right_frame, text="Edit Selected", command=self.open_edit_dialog, takefocus=False).pack(fill="x", pady=4)
-        ttk.Button(right_frame, text="Delete Selected", command=self.delete_selected, takefocus=False).pack(fill="x", pady=4)
-        ttk.Button(right_frame, text="Refresh", command=self.load_products, takefocus=False).pack(fill="x", pady=4)
 
         self.load_products()
 

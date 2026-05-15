@@ -26,7 +26,7 @@ class TableColumn:
 
 
 class ModernDataTable(ttk.Frame):
-    """Split-table layout with frozen columns and smoother scanning UX."""
+    """Single-grid table with sortable columns and responsive widths."""
 
     def __init__(
         self,
@@ -52,11 +52,12 @@ class ModernDataTable(ttk.Frame):
         self._hover_iid: str | None = None
         self._selection_sync_active = False
         self._last_selection: tuple[str, ...] = ()
-        self._y_sync_active = False
+        self._resize_after_id: str | None = None
         self._sort_column: str | None = None
         self._sort_descending = False
         self._selection_callbacks: list[Callable[[], None]] = []
         self._column_menu_vars: dict[str, tk.BooleanVar] = {}
+        self._scrollable_columns: list[TableColumn] = []
 
         self._build_shell()
         self._rebuild_columns()
@@ -68,7 +69,7 @@ class ModernDataTable(ttk.Frame):
 
     def get_selected_rows(self) -> list[dict]:
         """Return the currently selected raw rows."""
-        selection = self.scroll_tree.selection() or self.frozen_tree.selection()
+        selection = self.scroll_tree.selection()
         return [self._rows_by_iid[iid] for iid in selection if iid in self._rows_by_iid]
 
     def get_selected_row(self) -> dict | None:
@@ -123,7 +124,7 @@ class ModernDataTable(ttk.Frame):
         self._render_rows()
 
     def _build_shell(self) -> None:
-        outer = tk.Frame(self, bg="#D7E0EA", highlightthickness=0)
+        outer = tk.Frame(self, bg="#CBD5E1", highlightthickness=0)
         outer.pack(fill="both", expand=True)
 
         shell = tk.Frame(outer, bg="#FFFFFF", highlightthickness=0)
@@ -132,22 +133,9 @@ class ModernDataTable(ttk.Frame):
         self.table_area = tk.Frame(shell, bg="#FFFFFF", highlightthickness=0)
         self.table_area.pack(fill="both", expand=True)
 
-        self.frozen_wrapper = tk.Frame(self.table_area, bg="#FFFFFF", highlightthickness=0)
-        self.frozen_wrapper.pack(side="left", fill="y")
-
-        self.divider = tk.Frame(self.table_area, width=1, bg="#D7E0EA", highlightthickness=0)
-        self.divider.pack(side="left", fill="y")
-
         self.scroll_wrapper = tk.Frame(self.table_area, bg="#FFFFFF", highlightthickness=0)
         self.scroll_wrapper.pack(side="left", fill="both", expand=True)
 
-        self.frozen_tree = ttk.Treeview(
-            self.frozen_wrapper,
-            show="headings",
-            height=self.height,
-            selectmode=self.selectmode,
-            style="DataTable.Treeview",
-        )
         self.scroll_tree = ttk.Treeview(
             self.scroll_wrapper,
             show="headings",
@@ -155,16 +143,13 @@ class ModernDataTable(ttk.Frame):
             selectmode=self.selectmode,
             style="DataTable.Treeview",
         )
-        self.frozen_tree.pack(side="left", fill="y")
         self.scroll_tree.pack(side="top", fill="both", expand=True)
 
         self.v_scrollbar = ttk.Scrollbar(self.table_area, orient="vertical", command=self._on_vertical_scroll)
         self.h_scrollbar = ttk.Scrollbar(self.scroll_wrapper, orient="horizontal", command=self.scroll_tree.xview)
+        self.v_scrollbar.pack(side="right", fill="y")
         self.h_scrollbar.pack(side="bottom", fill="x")
 
-        self.frozen_tree.configure(
-            yscrollcommand=lambda first, last: self._on_tree_yview(self.frozen_tree, first, last)
-        )
         self.scroll_tree.configure(
             xscrollcommand=self.h_scrollbar.set,
             yscrollcommand=lambda first, last: self._on_tree_yview(self.scroll_tree, first, last),
@@ -178,48 +163,35 @@ class ModernDataTable(ttk.Frame):
             anchor="center",
         )
 
-        for tree in (self.frozen_tree, self.scroll_tree):
-            tree.tag_configure("row_even", background="#FFFFFF")
-            tree.tag_configure("row_odd", background="#F8FAFC")
-            tree.tag_configure("row_hover", background="#EFF6FF")
-            tree.bind("<<TreeviewSelect>>", self._on_tree_select, add="+")
-            tree.bind("<Motion>", self._on_tree_hover, add="+")
-            tree.bind("<Leave>", self._clear_hover, add="+")
-            tree.bind("<MouseWheel>", self._on_mousewheel, add="+")
-            tree.bind("<Shift-MouseWheel>", self._on_shift_mousewheel, add="+")
+        self.scroll_tree.tag_configure("row_even", background="#FFFFFF")
+        self.scroll_tree.tag_configure("row_odd", background="#F9FAFB")
+        self.scroll_tree.tag_configure("row_hover", background="#EAF2FF")
+        self.scroll_tree.bind("<<TreeviewSelect>>", self._on_tree_select, add="+")
+        self.scroll_tree.bind("<Motion>", self._on_tree_hover, add="+")
+        self.scroll_tree.bind("<Leave>", self._clear_hover, add="+")
+        self.scroll_tree.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        self.scroll_tree.bind("<Shift-MouseWheel>", self._on_shift_mousewheel, add="+")
+
+        self.scroll_tree.bind("<Configure>", self._schedule_column_resize, add="+")
 
     def _rebuild_columns(self) -> None:
         visible_columns = [column for column in self.columns if self._visibility[column.key]]
-        frozen_columns = [column for column in visible_columns if column.frozen]
-        scrollable_columns = [column for column in visible_columns if not column.frozen]
+        self._scrollable_columns = visible_columns
 
-        self._frozen_columns = frozen_columns
-        self._scrollable_columns = scrollable_columns
+        self.scroll_tree.configure(columns=[column.key for column in visible_columns])
 
-        self.frozen_tree.configure(columns=[column.key for column in frozen_columns])
-        self.scroll_tree.configure(columns=[column.key for column in scrollable_columns])
-
-        for tree, tree_columns in (
-            (self.frozen_tree, frozen_columns),
-            (self.scroll_tree, scrollable_columns),
-        ):
-            for column in tree_columns:
-                label = self._heading_label(column)
-                tree.heading(column.key, text=label, command=lambda key=column.key: self._sort_by(key))
-                tree.column(
-                    column.key,
-                    width=column.width,
-                    minwidth=column.minwidth or column.width,
-                    anchor=column.anchor,
-                    stretch=False,
-                )
-
-        has_frozen_columns = bool(frozen_columns)
-        self.frozen_wrapper.pack_forget()
-        self.divider.pack_forget()
-        if has_frozen_columns:
-            self.frozen_wrapper.pack(side="left", fill="y", before=self.scroll_wrapper)
-            self.divider.pack(side="left", fill="y", before=self.scroll_wrapper)
+        for column in visible_columns:
+            label = self._heading_label(column)
+            minimum_width = _minimum_column_width(column)
+            self.scroll_tree.heading(column.key, text=label, command=lambda key=column.key: self._sort_by(key))
+            self.scroll_tree.column(
+                column.key,
+                width=column.width,
+                minwidth=minimum_width,
+                anchor=column.anchor,
+                stretch=True,
+            )
+        self._schedule_column_resize()
 
     def _render_rows(self) -> None:
         self._clear_trees()
@@ -231,10 +203,8 @@ class ModernDataTable(ttk.Frame):
         for index, row in enumerate(rows):
             iid = f"row-{index}"
             tag = "row_even" if index % 2 == 0 else "row_odd"
-            frozen_values = [self._format_value(column, row.get(column.key)) for column in self._frozen_columns]
             scroll_values = [self._format_value(column, row.get(column.key)) for column in self._scrollable_columns]
 
-            self.frozen_tree.insert("", "end", iid=iid, values=frozen_values, tags=(tag,))
             self.scroll_tree.insert("", "end", iid=iid, values=scroll_values, tags=(tag,))
             self._rows_by_iid[iid] = row
             self._row_order.append(iid)
@@ -244,9 +214,8 @@ class ModernDataTable(ttk.Frame):
         self._update_empty_state()
 
     def _clear_trees(self) -> None:
-        for tree in (self.frozen_tree, self.scroll_tree):
-            for item in tree.get_children():
-                tree.delete(item)
+        for item in self.scroll_tree.get_children():
+            self.scroll_tree.delete(item)
 
     def _sorted_rows(self, rows: list[dict]) -> list[dict]:
         if not self._sort_column:
@@ -296,20 +265,10 @@ class ModernDataTable(ttk.Frame):
         self._render_rows()
 
     def _on_vertical_scroll(self, *args) -> None:
-        self.frozen_tree.yview(*args)
         self.scroll_tree.yview(*args)
 
-    def _on_tree_yview(self, source: ttk.Treeview, first: str, last: str) -> None:
+    def _on_tree_yview(self, _source: ttk.Treeview, first: str, last: str) -> None:
         self.v_scrollbar.set(first, last)
-        if self._y_sync_active:
-            return
-
-        other = self.scroll_tree if source is self.frozen_tree else self.frozen_tree
-        self._y_sync_active = True
-        try:
-            other.yview_moveto(first)
-        finally:
-            self._y_sync_active = False
 
     def _on_tree_select(self, event) -> None:
         if self._selection_sync_active:
@@ -318,27 +277,24 @@ class ModernDataTable(ttk.Frame):
 
     def _apply_selection(self, selection: tuple[str, ...] | list[str]) -> None:
         normalized_selection = tuple(selection)
-        frozen_selection = tuple(self.frozen_tree.selection())
         scroll_selection = tuple(self.scroll_tree.selection())
 
         if (
             normalized_selection == self._last_selection
-            and frozen_selection == normalized_selection
             and scroll_selection == normalized_selection
         ):
             return
 
         self._selection_sync_active = True
         try:
-            for tree in (self.frozen_tree, self.scroll_tree):
-                current_selection = tuple(tree.selection())
-                if current_selection != normalized_selection:
-                    if normalized_selection:
-                        tree.selection_set(normalized_selection)
-                    else:
-                        tree.selection_remove(current_selection)
+            current_selection = tuple(self.scroll_tree.selection())
+            if current_selection != normalized_selection:
                 if normalized_selection:
-                    tree.focus(normalized_selection[0])
+                    self.scroll_tree.selection_set(normalized_selection)
+                else:
+                    self.scroll_tree.selection_remove(current_selection)
+            if normalized_selection:
+                self.scroll_tree.focus(normalized_selection[0])
         finally:
             self._selection_sync_active = False
 
@@ -352,7 +308,6 @@ class ModernDataTable(ttk.Frame):
 
     def _on_mousewheel(self, event) -> str:
         step = -1 * int(event.delta / 120)
-        self.frozen_tree.yview_scroll(step, "units")
         self.scroll_tree.yview_scroll(step, "units")
         return "break"
 
@@ -385,15 +340,43 @@ class ModernDataTable(ttk.Frame):
             return
         base_tag = "row_even" if self._row_index[iid] % 2 == 0 else "row_odd"
         active_tag = "row_hover" if hover else base_tag
-        for tree in (self.frozen_tree, self.scroll_tree):
-            if tree.exists(iid):
-                tree.item(iid, tags=(active_tag,))
+        if self.scroll_tree.exists(iid):
+            self.scroll_tree.item(iid, tags=(active_tag,))
 
     def _update_empty_state(self) -> None:
         if self._row_order:
             self.empty_state_label.place_forget()
             return
         self.empty_state_label.place(relx=0.5, rely=0.5, anchor="center")
+
+    def _schedule_column_resize(self, _event=None) -> None:
+        if self._resize_after_id is not None:
+            self.after_cancel(self._resize_after_id)
+        self._resize_after_id = self.after_idle(self._fit_columns_to_width)
+
+    def _fit_columns_to_width(self) -> None:
+        self._resize_after_id = None
+        columns = self._scrollable_columns
+        if not columns:
+            return
+
+        available_width = max(self.scroll_tree.winfo_width() - 4, 1)
+        minimum_widths = [_minimum_column_width(column) for column in columns]
+        minimum_total = sum(minimum_widths)
+
+        if available_width <= minimum_total:
+            widths = minimum_widths
+        else:
+            preferred_total = sum(max(column.width, 1) for column in columns)
+            extra_width = available_width - minimum_total
+            widths = [
+                minimum_widths[index] + int(extra_width * (max(column.width, 1) / preferred_total))
+                for index, column in enumerate(columns)
+            ]
+            widths[-1] += available_width - sum(widths)
+
+        for column, width in zip(columns, widths):
+            self.scroll_tree.column(column.key, width=max(width, _minimum_column_width(column)))
 
 
 def currency_text(value: object) -> str:
@@ -411,6 +394,16 @@ def truncate_text(value: object, limit: int = 48) -> str:
     if len(text) <= limit:
         return text
     return f"{text[: limit - 3]}..."
+
+
+def _minimum_column_width(column: TableColumn) -> int:
+    if column.minwidth is not None:
+        return column.minwidth
+    if column.width >= 220:
+        return 140
+    if column.width >= 150:
+        return 105
+    return max(76, min(column.width, 100))
 
 
 def _coerce_sort_value(value: object, sort_type: str):

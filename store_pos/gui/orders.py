@@ -87,11 +87,6 @@ class OrdersView(ttk.Frame):
         action_frame.pack(fill="x", pady=(12, 0))
         self.total_var = tk.StringVar(value="Total: PHP 0.00")
         ttk.Label(action_frame, textvariable=self.total_var, font=("Segoe UI", 12, "bold")).pack(side="left")
-        ttk.Label(
-            action_frame,
-            text="Use Shift + mouse wheel for horizontal scrolling when needed.",
-            style="App.Subtle.TLabel",
-        ).pack(side="left", padx=(16, 0))
         ttk.Button(action_frame, text="Remove Selected Item", command=self.remove_selected_item, takefocus=False).pack(side="right")
         ttk.Button(action_frame, text="Place Order", command=self.place_order, takefocus=False).pack(side="right", padx=(0, 10))
 

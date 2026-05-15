@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .. import database
-from ..config import APP_GEOMETRY, APP_TITLE, LOW_STOCK_THRESHOLD
+from ..config import APP_GEOMETRY, APP_TITLE, LOW_STOCK_THRESHOLD, STORE_NAME
 from .data_table import ModernDataTable, TableColumn
 from .orders import OrdersView
 from .products import ProductsView
@@ -20,6 +20,18 @@ ACCENT_STRONG = "#60A5FA"
 TEXT = "#0F172A"
 MUTED = "#64748B"
 BORDER = "#E2E8F0"
+SIDEBAR = "#111827"
+SIDEBAR_MUTED = "#9CA3AF"
+SIDEBAR_ACTIVE = "#2563EB"
+SIDEBAR_HOVER = "#1F2937"
+
+
+NAVIGATION_ITEMS = [
+    ("Dashboard", "Overview and stock health"),
+    ("Products", "Manage inventory"),
+    ("New Order", "Create customer sales"),
+    ("Reports", "Export and review"),
+]
 
 
 class DashboardView(ttk.Frame):
@@ -74,7 +86,7 @@ class DashboardView(ttk.Frame):
 
         ttk.Label(
             self,
-            text="Track sales, spot low stock items, and jump into products, orders, and reports from the tabs above.",
+            text="Track sales, spot low stock items, and jump into products, orders, and reports from the side menu.",
             style="App.Subtle.TLabel",
         ).pack(anchor="w", pady=(24, 0))
 
@@ -207,10 +219,16 @@ class MainApplication(tk.Tk):
         self._configure_style()
         self._disable_double_click_focus()
 
-        container = ttk.Frame(self, padding=12, style="App.TFrame")
+        container = ttk.Frame(self, padding=0, style="App.TFrame")
         container.pack(fill="both", expand=True)
 
-        self.notebook = ttk.Notebook(container, style="App.TNotebook", takefocus=False)
+        self.navigation_buttons: list[tk.Button] = []
+        self._build_sidebar(container)
+
+        content_panel = ttk.Frame(container, padding=14, style="App.TFrame")
+        content_panel.pack(side="left", fill="both", expand=True)
+
+        self.notebook = ttk.Notebook(content_panel, style="Main.TNotebook", takefocus=False)
         self.notebook.pack(fill="both", expand=True)
 
         self.dashboard_view = DashboardView(self.notebook)
@@ -222,6 +240,8 @@ class MainApplication(tk.Tk):
         self.notebook.add(self.products_view, text="Products")
         self.notebook.add(self.orders_view, text="New Order")
         self.notebook.add(self.reports_view, text="Reports")
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_page_changed)
+        self._update_navigation_state(0)
 
         self.status_var = tk.StringVar(value="Ready.")
         ttk.Label(self, textvariable=self.status_var, style="Status.TLabel", anchor="w").pack(fill="x", padx=12, pady=(0, 12))
@@ -240,6 +260,105 @@ class MainApplication(tk.Tk):
         self.products_view.load_products()
         self.orders_view.refresh_products()
         self.reports_view.refresh_reports()
+
+    def _build_sidebar(self, parent: tk.Misc) -> None:
+        sidebar = tk.Frame(parent, bg=SIDEBAR, width=260, padx=18, pady=20)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
+
+        tk.Label(
+            sidebar,
+            text=APP_TITLE,
+            bg=SIDEBAR,
+            fg="#F9FAFB",
+            font=("Segoe UI Semibold", 17),
+            anchor="w",
+            justify="left",
+            wraplength=210,
+        ).pack(fill="x", anchor="w")
+        tk.Label(
+            sidebar,
+            text=f"{STORE_NAME} control center",
+            bg=SIDEBAR,
+            fg=SIDEBAR_MUTED,
+            font=("Segoe UI", 10),
+            anchor="w",
+        ).pack(fill="x", anchor="w", pady=(6, 26))
+
+        for page_index, (label, description) in enumerate(NAVIGATION_ITEMS):
+            button_text = f"{label}\n{description}"
+            nav_button = tk.Button(
+                sidebar,
+                text=button_text,
+                command=lambda index=page_index: self.show_page(index),
+                bg=SIDEBAR,
+                fg=SIDEBAR_MUTED,
+                activebackground=SIDEBAR_HOVER,
+                activeforeground="#F9FAFB",
+                bd=0,
+                relief="flat",
+                cursor="hand2",
+                anchor="w",
+                justify="left",
+                padx=14,
+                pady=12,
+                font=("Segoe UI", 10),
+                takefocus=False,
+            )
+            nav_button.pack(fill="x", pady=3)
+            nav_button.bind("<Enter>", lambda event, index=page_index: self._on_navigation_hover(event, index))
+            nav_button.bind("<Leave>", lambda event, index=page_index: self._on_navigation_leave(event, index))
+            self.navigation_buttons.append(nav_button)
+
+        tk.Frame(sidebar, bg=SIDEBAR).pack(fill="both", expand=True)
+        tk.Label(
+            sidebar,
+            text="Ready for sales, stock checks, and end-of-day reports.",
+            bg=SIDEBAR,
+            fg=SIDEBAR_MUTED,
+            font=("Segoe UI", 9),
+            anchor="w",
+            justify="left",
+            wraplength=210,
+        ).pack(fill="x", anchor="w")
+
+    def show_page(self, page_index: int) -> None:
+        self.notebook.select(page_index)
+        self._update_navigation_state(page_index)
+
+    def _on_page_changed(self, _event: tk.Event) -> None:
+        selected_tab_id = self.notebook.select()
+        if not selected_tab_id:
+            return
+        page_index = self.notebook.index(selected_tab_id)
+        self._update_navigation_state(page_index)
+
+    def _on_navigation_hover(self, event: tk.Event, page_index: int) -> None:
+        if self.notebook.index(self.notebook.select()) != page_index:
+            event.widget.configure(bg=SIDEBAR_HOVER, fg="#F9FAFB")
+
+    def _on_navigation_leave(self, event: tk.Event, page_index: int) -> None:
+        if self.notebook.index(self.notebook.select()) != page_index:
+            event.widget.configure(bg=SIDEBAR, fg=SIDEBAR_MUTED)
+
+    def _update_navigation_state(self, selected_index: int) -> None:
+        for index, button in enumerate(self.navigation_buttons):
+            if index == selected_index:
+                button.configure(
+                    bg=SIDEBAR_ACTIVE,
+                    fg="#FFFFFF",
+                    activebackground=SIDEBAR_ACTIVE,
+                    activeforeground="#FFFFFF",
+                    font=("Segoe UI Semibold", 10),
+                )
+            else:
+                button.configure(
+                    bg=SIDEBAR,
+                    fg=SIDEBAR_MUTED,
+                    activebackground=SIDEBAR_HOVER,
+                    activeforeground="#F9FAFB",
+                    font=("Segoe UI", 10),
+                )
 
     def _open_maximized(self) -> None:
         try:
@@ -350,18 +469,18 @@ class MainApplication(tk.Tk):
             background=CARD,
             fieldbackground=CARD,
             foreground=TEXT,
-            rowheight=38,
+            rowheight=42,
             borderwidth=0,
             relief="flat",
             font=("Segoe UI", 10),
         )
-        style.map("DataTable.Treeview", background=[("selected", "#DBEAFE")], foreground=[("selected", TEXT)])
+        style.map("DataTable.Treeview", background=[("selected", "#DCEBFF")], foreground=[("selected", TEXT)])
         style.configure(
             "DataTable.Treeview.Heading",
-            background="#F8FAFC",
+            background="#EEF2F7",
             foreground=TEXT,
             relief="flat",
-            padding=(14, 12),
+            padding=(14, 13),
             font=("Segoe UI Semibold", 10),
         )
         style.map(
@@ -389,6 +508,9 @@ class MainApplication(tk.Tk):
         )
         style.layout("App.TNotebook", style.layout("TNotebook"))
         style.layout("App.TNotebook.Tab", style.layout("TNotebook.Tab"))
+        style.configure("Main.TNotebook", background=SURFACE, borderwidth=0, tabmargins=(0, 0, 0, 0))
+        style.layout("Main.TNotebook", style.layout("TNotebook"))
+        style.layout("Main.TNotebook.Tab", [])
 
     def _disable_double_click_focus(self) -> None:
         self.bind_class("TButton", "<Double-Button-1>", lambda _event: "break")
