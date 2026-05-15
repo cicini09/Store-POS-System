@@ -33,7 +33,7 @@ def generate_orders_pdf(rows) -> str:
 def _build_pdf(path, title: str, table_data: list[list[str]]) -> None:
     try:
         from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
     except ImportError as exc:
@@ -42,7 +42,7 @@ def _build_pdf(path, title: str, table_data: list[list[str]]) -> None:
         ) from exc
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    document = SimpleDocTemplate(str(path), pagesize=A4)
+    document = SimpleDocTemplate(str(path), pagesize=landscape(A4))
     styles = getSampleStyleSheet()
 
     title_paragraph = Paragraph(title, styles["Heading1"])

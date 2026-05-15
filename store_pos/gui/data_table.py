@@ -88,6 +88,15 @@ class ModernDataTable(ttk.Frame):
         first_iid = self._row_order[0]
         self._apply_selection((first_iid,))
 
+    def select_row_by_value(self, key: str, value: object) -> bool:
+        """Select the first rendered row where the provided key matches the value."""
+        for iid in self._row_order:
+            row = self._rows_by_iid.get(iid)
+            if row is not None and row.get(key) == value:
+                self._apply_selection((iid,))
+                return True
+        return False
+
     def bind_selection_change(self, callback: Callable[[], None]) -> None:
         """Register a callback for selection changes."""
         self._selection_callbacks.append(callback)

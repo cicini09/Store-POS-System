@@ -5,20 +5,37 @@ from __future__ import annotations
 import sqlite3
 import tkinter as tk
 from tkinter import messagebox, ttk
+from typing import Callable
 
 from .. import database
 from ..utils import validators
 from .data_table import ModernDataTable, TableColumn, currency_text, truncate_text
 
 
+PRODUCT_DIALOG_BACKGROUND = "#F8FAFC"
+PRODUCT_DIALOG_CARD = "#FFFFFF"
+PRODUCT_DIALOG_TEXT = "#0F172A"
+PRODUCT_DIALOG_MUTED = "#64748B"
+PRODUCT_DIALOG_BORDER = "#CBD5E1"
+PRODUCT_DIALOG_DANGER = "#B42318"
+PRODUCT_DIALOG_DANGER_SOFT = "#FEF3F2"
+
+
 class ProductDialog(tk.Toplevel):
     """Modal dialog used for adding or editing products."""
 
-    def __init__(self, master: tk.Misc, title: str, on_save, product: dict | None = None) -> None:
+    def __init__(
+        self,
+        master: tk.Misc,
+        title: str,
+        on_save: Callable[[str, str, float, int, str], None],
+        product: dict | None = None,
+    ) -> None:
         super().__init__(master)
         self.on_save = on_save
         self.title(title)
         self.resizable(False, False)
+        self.configure(bg=PRODUCT_DIALOG_BACKGROUND)
         self.transient(master)
         self.grab_set()
 
@@ -28,36 +45,74 @@ class ProductDialog(tk.Toplevel):
         self.stock_var = tk.StringVar(value=str((product or {}).get("stock_quantity", "")))
         self.description_var = tk.StringVar(value=(product or {}).get("description", ""))
 
-        frame = ttk.Frame(self, padding=18)
-        frame.pack(fill="both", expand=True)
-
-        labels = ["Name", "Category", "Price", "Stock Quantity", "Description"]
-        vars_ = [
-            self.name_var,
-            self.category_var,
-            self.price_var,
-            self.stock_var,
-            self.description_var,
-        ]
-        for idx, (label_text, variable) in enumerate(zip(labels, vars_), start=0):
-            ttk.Label(frame, text=label_text).grid(row=idx, column=0, sticky="w", pady=6)
-            ttk.Entry(frame, textvariable=variable, width=36).grid(
-                row=idx,
-                column=1,
-                sticky="ew",
-                pady=6,
-            )
-
-        ttk.Button(frame, text="Save", command=self._save, takefocus=False).grid(
-            row=len(labels),
-            column=0,
-            columnspan=2,
-            sticky="ew",
-            pady=(14, 0),
+        shell = tk.Frame(
+            self,
+            bg=PRODUCT_DIALOG_CARD,
+            highlightthickness=1,
+            highlightbackground=PRODUCT_DIALOG_BORDER,
+            padx=22,
+            pady=20,
         )
+        shell.pack(fill="both", expand=True, padx=18, pady=18)
 
-        frame.columnconfigure(1, weight=1)
+        header = tk.Frame(shell, bg=PRODUCT_DIALOG_CARD)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 16))
+        tk.Label(
+            header,
+            text=title,
+            bg=PRODUCT_DIALOG_CARD,
+            fg=PRODUCT_DIALOG_TEXT,
+            font=("Segoe UI Semibold", 17),
+            anchor="w",
+        ).pack(anchor="w")
+        tk.Label(
+            header,
+            text="Keep product details accurate so inventory and receipts stay reliable.",
+            bg=PRODUCT_DIALOG_CARD,
+            fg=PRODUCT_DIALOG_MUTED,
+            font=("Segoe UI", 10),
+            anchor="w",
+        ).pack(anchor="w", pady=(4, 0))
+
+        for row_index, (label_text, variable) in enumerate(
+            [
+                ("Product name", self.name_var),
+                ("Category", self.category_var),
+                ("Price", self.price_var),
+                ("Stock quantity", self.stock_var),
+                ("Description", self.description_var),
+            ],
+            start=1,
+        ):
+            self._build_field(shell, label_text, variable, row_index)
+
+        action_bar = tk.Frame(shell, bg=PRODUCT_DIALOG_CARD)
+        action_bar.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(18, 0))
+        ttk.Button(action_bar, text="Cancel", command=self._cancel, style="Ghost.TButton", takefocus=False).pack(
+            side="right",
+            padx=(8, 0),
+        )
+        ttk.Button(action_bar, text="Save Product", command=self._save, takefocus=False).pack(side="right")
+
+        shell.columnconfigure(1, weight=1)
         self.bind("<Return>", lambda _event: self._save())
+        self.bind("<Escape>", lambda _event: self._cancel())
+        self.after_idle(self._center_over_parent)
+
+    def _build_field(self, parent: tk.Misc, label_text: str, variable: tk.StringVar, row_index: int) -> None:
+        tk.Label(
+            parent,
+            text=label_text,
+            bg=PRODUCT_DIALOG_CARD,
+            fg=PRODUCT_DIALOG_MUTED,
+            font=("Segoe UI Semibold", 9),
+            anchor="w",
+        ).grid(row=row_index, column=0, sticky="w", pady=7, padx=(0, 16))
+        ttk.Entry(parent, textvariable=variable, width=42).grid(row=row_index, column=1, sticky="ew", pady=7)
+
+    def _cancel(self) -> None:
+        self.grab_release()
+        self.destroy()
 
     def _save(self) -> None:
         errors = validators.validate_required_fields(
@@ -88,6 +143,122 @@ class ProductDialog(tk.Toplevel):
         )
         self.grab_release()
         self.destroy()
+
+    def _center_over_parent(self) -> None:
+        self.update_idletasks()
+        dialog_width = self.winfo_width()
+        dialog_height = self.winfo_height()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_position = (screen_width - dialog_width) // 2
+        y_position = (screen_height - dialog_height) // 2
+        self.geometry(f"+{max(x_position, 0)}+{max(y_position, 0)}")
+
+
+class DeleteProductsDialog(tk.Toplevel):
+    """Custom confirmation overlay for deleting one or more products."""
+
+    def __init__(self, master: tk.Misc, selected_products: list[dict]) -> None:
+        super().__init__(master)
+        self.confirmed = False
+        self.selected_products = selected_products
+        self.title("Delete Products" if len(selected_products) > 1 else "Delete Product")
+        self.resizable(False, False)
+        self.configure(bg=PRODUCT_DIALOG_BACKGROUND)
+        self.transient(master)
+        self.grab_set()
+
+        shell = tk.Frame(
+            self,
+            bg=PRODUCT_DIALOG_CARD,
+            highlightthickness=1,
+            highlightbackground=PRODUCT_DIALOG_BORDER,
+            padx=22,
+            pady=20,
+        )
+        shell.pack(fill="both", expand=True, padx=18, pady=18)
+
+        item_count = len(selected_products)
+        tk.Label(
+            shell,
+            text="Delete selected product" if item_count == 1 else "Delete selected products",
+            bg=PRODUCT_DIALOG_CARD,
+            fg=PRODUCT_DIALOG_DANGER,
+            font=("Segoe UI Semibold", 16),
+            anchor="w",
+        ).pack(fill="x")
+        tk.Label(
+            shell,
+            text=(
+                "This removes the item from inventory. Products already linked to orders will be protected by the database."
+                if item_count == 1
+                else "This removes these items from inventory. Products already linked to orders will be protected by the database."
+            ),
+            bg=PRODUCT_DIALOG_CARD,
+            fg=PRODUCT_DIALOG_MUTED,
+            font=("Segoe UI", 10),
+            wraplength=430,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", pady=(6, 14))
+
+        list_panel = tk.Frame(
+            shell,
+            bg=PRODUCT_DIALOG_DANGER_SOFT,
+            highlightthickness=1,
+            highlightbackground="#FECACA",
+            padx=12,
+            pady=10,
+        )
+        list_panel.pack(fill="x")
+        for product in selected_products[:4]:
+            tk.Label(
+                list_panel,
+                text=f"{product['name']} · {currency_text(product['price'])} · Stock {product['stock']}",
+                bg=PRODUCT_DIALOG_DANGER_SOFT,
+                fg=PRODUCT_DIALOG_TEXT,
+                font=("Segoe UI", 10),
+                anchor="w",
+            ).pack(fill="x", pady=2)
+        if len(selected_products) > 4:
+            tk.Label(
+                list_panel,
+                text=f"+ {len(selected_products) - 4} more",
+                bg=PRODUCT_DIALOG_DANGER_SOFT,
+                fg=PRODUCT_DIALOG_MUTED,
+                font=("Segoe UI", 10),
+                anchor="w",
+            ).pack(fill="x", pady=(4, 0))
+
+        action_bar = tk.Frame(shell, bg=PRODUCT_DIALOG_CARD)
+        action_bar.pack(fill="x", pady=(18, 0))
+        ttk.Button(action_bar, text="Cancel", command=self._cancel, style="Ghost.TButton", takefocus=False).pack(
+            side="right",
+            padx=(8, 0),
+        )
+        ttk.Button(action_bar, text="Delete", command=self._confirm, takefocus=False).pack(side="right")
+
+        self.bind("<Escape>", lambda _event: self._cancel())
+        self.after_idle(self._center_over_parent)
+
+    def _confirm(self) -> None:
+        self.confirmed = True
+        self.grab_release()
+        self.destroy()
+
+    def _cancel(self) -> None:
+        self.grab_release()
+        self.destroy()
+
+    def _center_over_parent(self) -> None:
+        self.update_idletasks()
+        dialog_width = self.winfo_width()
+        dialog_height = self.winfo_height()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x_position = (screen_width - dialog_width) // 2
+        y_position = (screen_height - dialog_height) // 2
+        self.geometry(f"+{max(x_position, 0)}+{max(y_position, 0)}")
 
 
 class ProductsView(ttk.Frame):
@@ -175,13 +346,9 @@ class ProductsView(ttk.Frame):
             return
 
         names = [product["name"] for product in selected_products]
-        item_count = len(selected_products)
-        confirmed = messagebox.askyesno(
-            "Delete Products" if item_count > 1 else "Delete Product",
-            f"Delete {item_count} selected product{'s' if item_count != 1 else ''} from inventory?",
-            parent=self,
-        )
-        if not confirmed:
+        confirmation_dialog = DeleteProductsDialog(self, selected_products)
+        self.wait_window(confirmation_dialog)
+        if not confirmation_dialog.confirmed:
             return
 
         deleted_count = 0

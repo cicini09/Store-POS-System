@@ -467,21 +467,34 @@ def get_orders_report() -> list[tuple]:
 def seed_demo_data() -> None:
     """Populate the database with electronics demo data once."""
     products = [
-        ("Laptop Pro 14", "14-inch laptop with 16GB RAM", 64999.00, 12, "Computers"),
-        ("Wireless Mouse", "Ergonomic Bluetooth mouse", 899.00, 40, "Accessories"),
-        ("Mechanical Keyboard", "RGB backlit keyboard", 2499.00, 18, "Accessories"),
-        ("27-inch Monitor", "Full HD IPS display", 9999.00, 10, "Displays"),
-        ("USB-C Hub", "6-in-1 multiport adapter", 1599.00, 25, "Accessories"),
-        ("Noise Cancelling Headphones", "Over-ear wireless headphones", 5499.00, 14, "Audio"),
-        ("Portable SSD 1TB", "High-speed external storage", 4299.00, 16, "Storage"),
-        ("Gaming Chair", "Lumbar support with recline", 7999.00, 8, "Furniture"),
-        ("1080p Webcam", "Auto-focus video webcam", 1899.00, 20, "Cameras"),
-        ("Smartphone Stand", "Adjustable aluminum stand", 499.00, 35, "Accessories"),
+        ("Laptop Pro 14", "14-inch laptop with 16GB RAM and 512GB SSD", 64999.00, 12, "Computers"),
+        ("Laptop Air 13", "Ultralight 13-inch notebook, 8GB RAM", 42999.00, 9, "Computers"),
+        ("Desktop Tower i7", "Intel i7 desktop with 32GB RAM", 54999.00, 6, "Computers"),
+        ("Wireless Mouse", "Ergonomic Bluetooth mouse with silent clicks", 899.00, 40, "Accessories"),
+        ("Mechanical Keyboard", "RGB backlit mechanical keyboard, blue switches", 2499.00, 18, "Accessories"),
+        ("27-inch Monitor", "Full HD IPS display, 75Hz refresh rate", 9999.00, 10, "Displays"),
+        ("24-inch Curved Monitor", "1080p VA panel, 165Hz gaming monitor", 8499.00, 7, "Displays"),
+        ("USB-C Hub", "6-in-1 multiport adapter with HDMI and SD slot", 1599.00, 25, "Accessories"),
+        ("Noise Cancelling Headphones", "Over-ear wireless ANC headphones", 5499.00, 14, "Audio"),
+        ("Bluetooth Speaker", "Portable waterproof speaker, 12hr battery", 2999.00, 20, "Audio"),
+        ("Portable SSD 1TB", "High-speed USB 3.2 external storage", 4299.00, 16, "Storage"),
+        ("Portable SSD 500GB", "Compact external SSD, shock-resistant", 2599.00, 22, "Storage"),
+        ("Gaming Chair", "Ergonomic lumbar support with full recline", 7999.00, 8, "Furniture"),
+        ("Standing Desk", "Electric height-adjustable desk, 120cm", 14999.00, 4, "Furniture"),
+        ("1080p Webcam", "Auto-focus HD webcam with built-in mic", 1899.00, 20, "Cameras"),
+        ("4K Action Camera", "Waterproof action cam with stabilization", 6999.00, 11, "Cameras"),
+        ("Smartphone Stand", "Adjustable aluminum phone/tablet stand", 499.00, 35, "Accessories"),
+        ("Wireless Charger Pad", "15W fast Qi wireless charging pad", 799.00, 30, "Accessories"),
+        ("USB Desk Lamp", "LED desk lamp with adjustable brightness", 1299.00, 18, "Accessories"),
+        ("Surge Protector 6-Outlet", "Power strip with USB ports and surge protection", 699.00, 28, "Accessories"),
     ]
     customers = [
         ("Mia Santos", "mia.santos@example.com", "09171234567"),
         ("Noah Reyes", "noah.reyes@example.com", "09179876543"),
         ("Ava Cruz", "ava.cruz@example.com", "09175550123"),
+        ("Liam Garcia", "liam.garcia@example.com", "09171112233"),
+        ("Sofia Mendoza", "sofia.mendoza@example.com", "09174445566"),
+        ("Ethan Villanueva", "ethan.villa@example.com", "09177778899"),
     ]
     seeded_orders = [
         {
@@ -517,6 +530,78 @@ def seed_demo_data() -> None:
             "items": [
                 {"product_name": "Mechanical Keyboard", "quantity": 1},
                 {"product_name": "Wireless Mouse", "quantity": 2},
+            ],
+        },
+        {
+            "email": "liam.garcia@example.com",
+            "items": [
+                {"product_name": "Desktop Tower i7", "quantity": 1},
+                {"product_name": "24-inch Curved Monitor", "quantity": 1},
+                {"product_name": "Mechanical Keyboard", "quantity": 1},
+            ],
+        },
+        {
+            "email": "sofia.mendoza@example.com",
+            "items": [
+                {"product_name": "Laptop Air 13", "quantity": 1},
+                {"product_name": "Wireless Charger Pad", "quantity": 2},
+            ],
+        },
+        {
+            "email": "ethan.villa@example.com",
+            "items": [
+                {"product_name": "Gaming Chair", "quantity": 1},
+                {"product_name": "Standing Desk", "quantity": 1},
+            ],
+        },
+        {
+            "email": "ava.cruz@example.com",
+            "items": [
+                {"product_name": "Bluetooth Speaker", "quantity": 2},
+                {"product_name": "USB Desk Lamp", "quantity": 1},
+            ],
+        },
+        {
+            "email": "liam.garcia@example.com",
+            "items": [
+                {"product_name": "4K Action Camera", "quantity": 1},
+                {"product_name": "Portable SSD 500GB", "quantity": 1},
+            ],
+        },
+        {
+            "email": "sofia.mendoza@example.com",
+            "items": [
+                {"product_name": "Surge Protector 6-Outlet", "quantity": 3},
+                {"product_name": "USB-C Hub", "quantity": 1},
+            ],
+        },
+        {
+            "email": "mia.santos@example.com",
+            "items": [
+                {"product_name": "Bluetooth Speaker", "quantity": 1},
+                {"product_name": "Wireless Charger Pad", "quantity": 1},
+            ],
+        },
+        {
+            "email": "ethan.villa@example.com",
+            "items": [
+                {"product_name": "Laptop Pro 14", "quantity": 1},
+                {"product_name": "27-inch Monitor", "quantity": 1},
+                {"product_name": "Wireless Mouse", "quantity": 1},
+            ],
+        },
+        {
+            "email": "noah.reyes@example.com",
+            "items": [
+                {"product_name": "Portable SSD 1TB", "quantity": 2},
+                {"product_name": "1080p Webcam", "quantity": 1},
+            ],
+        },
+        {
+            "email": "ava.cruz@example.com",
+            "items": [
+                {"product_name": "Smartphone Stand", "quantity": 2},
+                {"product_name": "USB Desk Lamp", "quantity": 2},
             ],
         },
     ]

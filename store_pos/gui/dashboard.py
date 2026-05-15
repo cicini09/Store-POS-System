@@ -27,10 +27,10 @@ SIDEBAR_HOVER = "#1F2937"
 
 
 NAVIGATION_ITEMS = [
-    ("Dashboard", "Overview and stock health"),
-    ("Products", "Manage inventory"),
-    ("New Order", "Create customer sales"),
-    ("Reports", "Export and review"),
+    ("\u2302  Dashboard", "Dashboard"),
+    ("\u2630  Products", "Products"),
+    ("\u2795  New Order", "New Order"),
+    ("\U0001F4CB  Reports", "Reports"),
 ]
 
 
@@ -285,11 +285,10 @@ class MainApplication(tk.Tk):
             anchor="w",
         ).pack(fill="x", anchor="w", pady=(6, 26))
 
-        for page_index, (label, description) in enumerate(NAVIGATION_ITEMS):
-            button_text = f"{label}\n{description}"
+        for page_index, (label, _name) in enumerate(NAVIGATION_ITEMS):
             nav_button = tk.Button(
                 sidebar,
-                text=button_text,
+                text=label,
                 command=lambda index=page_index: self.show_page(index),
                 bg=SIDEBAR,
                 fg=SIDEBAR_MUTED,
@@ -301,26 +300,16 @@ class MainApplication(tk.Tk):
                 anchor="w",
                 justify="left",
                 padx=14,
-                pady=12,
-                font=("Segoe UI", 10),
+                pady=11,
+                font=("Segoe UI", 11),
                 takefocus=False,
             )
-            nav_button.pack(fill="x", pady=3)
+            nav_button.pack(fill="x", pady=2)
             nav_button.bind("<Enter>", lambda event, index=page_index: self._on_navigation_hover(event, index))
             nav_button.bind("<Leave>", lambda event, index=page_index: self._on_navigation_leave(event, index))
             self.navigation_buttons.append(nav_button)
 
         tk.Frame(sidebar, bg=SIDEBAR).pack(fill="both", expand=True)
-        tk.Label(
-            sidebar,
-            text="Ready for sales, stock checks, and end-of-day reports.",
-            bg=SIDEBAR,
-            fg=SIDEBAR_MUTED,
-            font=("Segoe UI", 9),
-            anchor="w",
-            justify="left",
-            wraplength=210,
-        ).pack(fill="x", anchor="w")
 
     def show_page(self, page_index: int) -> None:
         self.notebook.select(page_index)
@@ -349,7 +338,7 @@ class MainApplication(tk.Tk):
                     fg="#FFFFFF",
                     activebackground=SIDEBAR_ACTIVE,
                     activeforeground="#FFFFFF",
-                    font=("Segoe UI Semibold", 10),
+                    font=("Segoe UI Semibold", 11),
                 )
             else:
                 button.configure(
@@ -357,7 +346,7 @@ class MainApplication(tk.Tk):
                     fg=SIDEBAR_MUTED,
                     activebackground=SIDEBAR_HOVER,
                     activeforeground="#F9FAFB",
-                    font=("Segoe UI", 10),
+                    font=("Segoe UI", 11),
                 )
 
     def _open_maximized(self) -> None:
